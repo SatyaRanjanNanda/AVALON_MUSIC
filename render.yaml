@@ -1,0 +1,11 @@
+services:
+  - type: worker
+    name: AVALON_music
+    runtime: node
+    plan: free
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm run start
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production

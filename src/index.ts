@@ -21,8 +21,8 @@ export const client = new Client({
 // Configure Lavalink nodes
 const Nodes = [{
     name: 'Public Node',
-    url: process.env.LAVALINK_URL || 'lavalink.oops.wtf:443',
-    auth: process.env.LAVALINK_AUTH || 'www.freelavalink.wtf',
+    url: process.env.LAVALINK_URL || 'lava-v4.ajidev.com:443',
+    auth: process.env.LAVALINK_AUTH || 'aiv4',
     secure: process.env.LAVALINK_SECURE !== 'false'
 }];
 

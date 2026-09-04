@@ -20,9 +20,9 @@ export const client = new Client({
 
 // Configure Lavalink nodes
 const Nodes = [{
-    name: 'Public Node',
-    url: process.env.LAVALINK_URL || 'lava.link:80',
-    auth: process.env.LAVALINK_AUTH || 'corvus',
+    name: 'HeavenCloud Node',
+    url: process.env.LAVALINK_URL || 'free-lava.heavencloud.in:4000',
+    auth: process.env.LAVALINK_AUTH || 'heavencloud.in',
     secure: process.env.LAVALINK_SECURE === 'true'
 }];
 

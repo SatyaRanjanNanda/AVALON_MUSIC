@@ -21,9 +21,9 @@ export const client = new Client({
 // Configure Lavalink nodes
 const Nodes = [{
     name: 'Public Node',
-    url: process.env.LAVALINK_URL || 'lava-v4.ajidev.com:443',
-    auth: process.env.LAVALINK_AUTH || 'aiv4',
-    secure: process.env.LAVALINK_SECURE !== 'false'
+    url: process.env.LAVALINK_URL || 'lava.link:80',
+    auth: process.env.LAVALINK_AUTH || 'corvus',
+    secure: process.env.LAVALINK_SECURE === 'true'
 }];
 
 // Initialize Shoukaku

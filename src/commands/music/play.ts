@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember } from 'discord.js';
 import { Command } from '../../types';
-import { player } from '../../index';
+import { shoukaku } from '../../index';
 
 const playCommand: Command = {
     data: new SlashCommandBuilder()
@@ -23,23 +23,42 @@ const playCommand: Command = {
         }
 
         const query = interaction.options.getString('query', true);
-
-        try {
-            const { track } = await player.play(voiceChannel, query, {
-                nodeOptions: {
-                    metadata: interaction,
-                    leaveOnEmpty: true,
-                    leaveOnEmptyCooldown: 30000,
-                    leaveOnEnd: true,
-                    leaveOnEndCooldown: 300000,
-                }
-            });
-
-            await interaction.editReply(`Added to queue: **${track.title}** by ${track.author}`);
-        } catch (e) {
-            console.error(e);
-            await interaction.editReply(`Something went wrong while trying to play **${query}**!`);
+        
+        // Get a lavalink node
+        const node = shoukaku.options.nodeResolver(shoukaku.nodes);
+        if (!node) {
+            await interaction.editReply('No Lavalink nodes are available.');
+            return;
         }
+
+        // Search for the track
+        const result = await node.rest.resolve(`ytmsearch:${query}`);
+        if (!result || !result.data || !Array.isArray(result.data) || result.data.length === 0) {
+            await interaction.editReply('No results found.');
+            return;
+        }
+
+        const track = result.data[0];
+
+        // Join the voice channel
+        let player = shoukaku.players.get(interaction.guildId!);
+        if (!player) {
+            player = await shoukaku.joinVoiceChannel({
+                guildId: interaction.guildId!,
+                channelId: voiceChannel.id,
+                shardId: 0 // Default shard id
+            });
+        }
+
+        if (!player) {
+            await interaction.editReply('Failed to join the voice channel.');
+            return;
+        }
+
+        // Play the track
+        await player.playTrack({ track: { encoded: track.encoded } });
+
+        await interaction.editReply(`Now playing: **${track.info.title}** by ${track.info.author}`);
     }
 };
 

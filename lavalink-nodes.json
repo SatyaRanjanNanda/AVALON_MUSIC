@@ -7,31 +7,10 @@
     "secure": true
   },
   {
-    "name": "Serenetia v4 ID SSL",
-    "host": "lavalinkv4-id.serenetia.com",
-    "port": 443,
-    "password": "BatuManaBisa",
-    "secure": true
-  },
-  {
-    "name": "Hewkawar",
-    "host": "lavalink.hewkawar.xyz",
-    "port": 443,
-    "password": "HewkawArrPass",
-    "secure": true
-  },
-  {
     "name": "Jirayu SSL",
     "host": "lavalink.jirayu.net",
     "port": 443,
     "password": "youshallnotpass",
-    "secure": true
-  },
-  {
-    "name": "Triniumhost",
-    "host": "lavalink-v4.triniumhost.com",
-    "port": 443,
-    "password": "free",
     "secure": true
   },
   {

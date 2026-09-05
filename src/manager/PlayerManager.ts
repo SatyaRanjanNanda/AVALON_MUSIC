@@ -97,7 +97,7 @@ export class PlayerManager {
             }
 
             if (loadType === 'search' || loadType === 'track') {
-                const track = tracks[0];
+                const track = loadType === 'search' ? this.pickBestTrack(tracks, query) : tracks[0];
                 if (!track || !track.info) {
                     return { type: 'error', message: 'No results found' };
                 }
@@ -114,6 +114,40 @@ export class PlayerManager {
             console.error('Play song error:', (error as Error)?.message || error);
             return { type: 'error', message: 'Failed to play song' };
         }
+    }
+
+    private pickBestTrack(tracks: Track[], query: string): Track | undefined {
+        if (tracks.length <= 1) return tracks[0];
+
+        const q = query.toLowerCase();
+        const badTags = /(remix|instrumental|karaoke|cover|slowed|sped up|reverb|extended|nightcore|8d ?audio|bass ?boost|relax(ing)?|reimagined|acoustic|tiktok|future house|top 100|popular songs|mix|megamix|mashup)/;
+        const goodTags = /\b(official|official audio|official video|audio)\b/;
+
+        let best: Track | undefined = tracks[0];
+        let bestScore = -Infinity;
+
+        for (let i = 0; i < Math.min(tracks.length, 15); i++) {
+            const track = tracks[i];
+            const title = (track?.info?.title || '').toLowerCase();
+            const author = (track?.info?.author || '').toLowerCase();
+
+            let score = 1000 - i * 12;
+            if (badTags.test(title)) score -= 450;
+            if (goodTags.test(title)) score += 120;
+            if (author && q.length > 3 && (q.includes(author) || author.includes(q))) score += 80;
+
+            const words = q.split(/\s+/).filter((w) => w.length > 3);
+            const matched = words.filter((w) => title.includes(w)).length;
+            score += matched * 40;
+            if (title === q) score += 200;
+
+            if (score > bestScore) {
+                bestScore = score;
+                best = track;
+            }
+        }
+
+        return best;
     }
 
     private async resolveWithFallback(query: string, requester: unknown): Promise<FallbackResolveResult> {

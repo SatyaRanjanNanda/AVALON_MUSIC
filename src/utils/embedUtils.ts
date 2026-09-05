@@ -1,6 +1,6 @@
 import { EmbedBuilder } from 'discord.js';
 import config from '../config';
-import { riffy } from '../core';
+import { riffy, client } from '../core';
 import { formatDuration, getProgressBar, getTrackThumbnail, mentionRequester } from './helpers';
 import type { Track, PlayerSnapshot } from '../types';
 
@@ -28,7 +28,7 @@ export function createNowPlayingEmbed(snapshot: PlayerSnapshot): EmbedBuilder {
             { name: '🎧 Requested by', value: requester, inline: true }
         )
         .setThumbnail(snapshot.thumbnail || BANNER)
-        .setFooter({ text: `Library · Discord Music Bot` });
+        .setFooter({ text: `Library · Discord Music Bot`, iconURL: client.user?.displayAvatarURL({ extension: 'png', size: 128 }) });
 }
 
 export function createQueueEmbed(snapshot: Pick<PlayerSnapshot, 'loop' | 'volume' | 'autoplay' | 'queueLength' | 'title' | 'author' | 'duration' | 'thumbnail' | 'requester' | 'position'>): EmbedBuilder {

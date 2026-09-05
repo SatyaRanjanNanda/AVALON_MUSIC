@@ -17,7 +17,7 @@ export const execute = async (interaction: Interaction) => {
     const command = commands.get(interaction.commandName);
 
     if (!command) {
-        console.error(\No command matching \ was found.\);
+        console.error(`No command matching ${interaction.commandName} was found.`);
         return;
     }
 

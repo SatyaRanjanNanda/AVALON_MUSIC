@@ -40,7 +40,7 @@ const playCommand: Command = {
             return;
         }
 
-        const result = await node.rest.resolve(\ytmsearch:\\);
+        const result = await node.rest.resolve(`ytmsearch:${query}`);
         if (!result || !result.data || !Array.isArray(result.data) || result.data.length === 0) {
             await context.editReply('No results found.');
             return;
@@ -67,26 +67,26 @@ const playCommand: Command = {
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
             .setTitle('Now Playing')
-            .setDescription(\**\**\nby \\)
+            .setDescription(`**${track.info.title}**\nby ${track.info.author}`)
             .setURL(track.info.uri || null);
 
         const row = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(
                 new ButtonBuilder()
                     .setCustomId('music_pause')
-                    .setEmoji('??')
+                    .setEmoji('⏯️')
                     .setStyle(ButtonStyle.Primary),
                 new ButtonBuilder()
                     .setCustomId('music_skip')
-                    .setEmoji('??')
+                    .setEmoji('⏭️')
                     .setStyle(ButtonStyle.Secondary),
                 new ButtonBuilder()
                     .setCustomId('music_stop')
-                    .setEmoji('??')
+                    .setEmoji('⏹️')
                     .setStyle(ButtonStyle.Danger),
                 new ButtonBuilder()
                     .setCustomId('music_filter_menu')
-                    .setEmoji('???')
+                    .setEmoji('🎛️')
                     .setStyle(ButtonStyle.Success)
             );
 

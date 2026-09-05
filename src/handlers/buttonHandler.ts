@@ -11,13 +11,13 @@ export const handleButtonInteraction = async (interaction: ButtonInteraction) =>
     if (interaction.customId === 'music_pause') {
         const isPaused = player.paused;
         await player.setPaused(!isPaused);
-        await interaction.reply({ content: isPaused ? '?? Resumed the music!' : '?? Paused the music!', ephemeral: true });
+        await interaction.reply({ content: isPaused ? '▶️ Resumed the music!' : '⏸️ Paused the music!', ephemeral: true });
     } else if (interaction.customId === 'music_skip') {
         await player.stopTrack(); 
-        await interaction.reply({ content: '?? Skipped the track!', ephemeral: true });
+        await interaction.reply({ content: '⏭️ Skipped the track!', ephemeral: true });
     } else if (interaction.customId === 'music_stop') {
         await shoukaku.leaveVoiceChannel(interaction.guildId!);
-        await interaction.reply({ content: '?? Stopped the music and left the channel!', ephemeral: true });
+        await interaction.reply({ content: '⏹️ Stopped the music and left the channel!', ephemeral: true });
     } else if (interaction.customId === 'music_filter_menu') {
         const row = new ActionRowBuilder<StringSelectMenuBuilder>()
             .addComponents(
@@ -72,5 +72,5 @@ export const handleSelectMenuInteraction = async (interaction: StringSelectMenuI
             break;
     }
 
-    await interaction.update({ content: \Applied filter: **\**\, components: [] });
+    await interaction.update({ content: `Applied filter: **${preset}**`, components: [] });
 };

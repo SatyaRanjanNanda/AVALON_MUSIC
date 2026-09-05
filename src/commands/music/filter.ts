@@ -74,7 +74,7 @@ const filterCommand: Command = {
                 return;
         }
 
-        await context.reply(\Applied filter: **\**\);
+        await context.reply(`Applied filter: **${preset}**`);
     }
 };
 

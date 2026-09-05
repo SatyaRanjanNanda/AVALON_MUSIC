@@ -1,56 +1,84 @@
-import { Client, GatewayIntentBits, Collection } from 'discord.js';
-import { Shoukaku, Connectors } from 'shoukaku';
+import { Client } from 'discord.js';
+import { Riffy } from 'riffy';
 import * as dotenv from 'dotenv';
 import express from 'express';
 import { PrismaClient } from '@prisma/client';
+import { IntentsForClient, setClient, setMusic, setRiffy, setSettings, setStatus } from './core';
+import { settingsStore } from './utils/settings';
+import { CentralEmbedHandler } from './utils/centralEmbed';
+import { PlayerManager } from './manager/PlayerManager';
+import { StatusManager } from './utils/statusManager';
+import { loadCommands } from './handlers/commandHandler';
+import { loadEvents } from './handlers/eventHandler';
+import config from './config';
 
 dotenv.config();
 
-// Keep-alive server for Render
-const app = express();
-const port = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Bot is healthy and running!'));
-app.listen(port, () => console.log(`Health server listening on port ${port}`));
-
-// Initialize Prisma
 export const prisma = new PrismaClient();
 
-// Initialize Discord Client
-export const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent
-    ]
+const app = express();
+app.get('/', (req, res) => res.send('🎵 Avalon Music is healthy and running!'));
+app.listen(config.keepAlive.healthPort, () => console.log(`✅ Health server listening on port ${config.keepAlive.healthPort}`));
+
+export const client = new Client({ intents: IntentsForClient });
+
+setClient(client);
+setSettings(settingsStore);
+
+client.riffy = new Riffy(client, config.lavalink.nodes, {
+    send: (payload) => {
+        const guild = client.guilds.cache.get(payload.d.guild_id);
+        if (guild) guild.shard.send(payload);
+    },
+    defaultSearchPlatform: config.lavalink.defaultSearchPlatform,
+    restVersion: 'v4',
+    bypassChecks: { nodeFetchInfo: true }
 });
+setRiffy(client.riffy);
 
-// Configure Lavalink nodes
-const LAVALINK_URL = (process.env.LAVALINK_URL || '').replace(/['"]/g, '').replace(':2333', ':443').trim();
-const LAVALINK_AUTH = (process.env.LAVALINK_AUTH || '').replace(/['"]/g, '').trim();
+client.on('raw', (data) => client.riffy.updateVoiceState(data));
 
-console.log(`[DEBUG] Attempting to connect to Lavalink at: ${LAVALINK_URL} with password length: ${LAVALINK_AUTH.length}`);
+const centralEmbed = new CentralEmbedHandler(client, settingsStore);
+const music = new PlayerManager(client, centralEmbed, settingsStore);
+setMusic(music);
 
-const Nodes = [
-    {
-        name: 'Railway Private Node',
-        url: LAVALINK_URL,
-        auth: LAVALINK_AUTH,
-        secure: true
+const status = new StatusManager(client, (guildId) => music.getPlayerInfo(guildId));
+setStatus(status);
+client.statusManager = status;
+
+music.initializeEvents();
+
+async function start(): Promise<void> {
+    try {
+        console.log('🖥️ Initializing settings store...');
+        await settingsStore.init();
+        console.log('🗄️ Settings store ready');
+    } catch (error) {
+        console.error('⚠️ Settings store init failed (falling back to in-memory):', (error as Error)?.message);
     }
-];
 
-// Initialize Shoukaku
-export const shoukaku = new Shoukaku(new Connectors.DiscordJS(client), Nodes);
+    console.log('📦 Loading commands...');
+    await loadCommands();
 
-import { loadCommands } from './handlers/commandHandler';
-import { loadEvents } from './handlers/eventHandler';
+    console.log('🔔 Loading events...');
+    await loadEvents(client);
+    console.log('🔔 Events loaded');
 
-shoukaku.on('error', (_, error) => console.error('Shoukaku Error:', error));
-shoukaku.on('ready', (name) => console.log(`Lavalink Node: ${name} is now connected`));
+    const keepAlive = setInterval(() => {
+        if (config.keepAlive.healthUrl) {
+            fetch(config.keepAlive.healthUrl).catch(() => undefined);
+        }
+    }, 240000);
+    void keepAlive;
 
-// Load Commands and Events
-loadCommands(client);
-loadEvents(client);
+    console.log('🔑 Logging in...');
+    try {
+        await client.login(config.discord.token);
+    } catch (error) {
+        console.error('❌ Failed to login:', error);
+        process.exit(1);
+    }
+    console.log('🔑 Login resolved');
+}
 
-client.login(process.env.DISCORD_TOKEN);
+void start();

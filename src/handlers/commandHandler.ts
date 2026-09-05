@@ -1,53 +1,57 @@
-import { Client, Collection, REST, Routes } from 'discord.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import { Command } from '../types';
+import { Collection, REST, Routes } from 'discord.js';
+import fs from 'fs';
+import path from 'path';
+import type { MessageCommand, SlashCommand } from '../types';
 
-export const commands = new Collection<string, Command>();
-export const commandData: any[] = [];
+export const messageCommands = new Collection<string, MessageCommand>();
+export const slashCommands = new Collection<string, SlashCommand>();
 
-export const loadCommands = async (client: Client) => {
-    const commandsPath = path.join(__dirname, '../commands');
-    
-    // Read command categories (folders)
-    if (!fs.existsSync(commandsPath)) return;
-    
-    const commandFolders = fs.readdirSync(commandsPath);
-
-    for (const folder of commandFolders) {
-        const folderPath = path.join(commandsPath, folder);
-        if (!fs.statSync(folderPath).isDirectory()) continue;
-        
-        const commandFiles = fs.readdirSync(folderPath).filter(file => file.endsWith('.ts') || file.endsWith('.js'));
-        
-        for (const file of commandFiles) {
-            const filePath = path.join(folderPath, file);
-            const command = require(filePath).default as Command;
-            
-            if ('data' in command && 'execute' in command) {
-                commands.set(command.data.name, command);
-                commandData.push(command.data.toJSON());
-                console.log(`[Loaded Command] ${command.data.name}`);
-            } else {
-                console.log(`[WARNING] The command at ${filePath} is missing a required "data" or "execute" property.`);
+async function loadFromDirectory(dir: string): Promise<string> {
+    let loaded = 0;
+    if (!fs.existsSync(dir)) return '0';
+    const files = fs.readdirSync(dir).filter((file) => file.endsWith('.ts') || file.endsWith('.js'));
+    for (const file of files) {
+        const filePath = path.join(dir, file);
+        try {
+            delete require.cache[require.resolve(filePath)];
+            const command = (await import(filePath)).default;
+            if (!command) continue;
+            if ('data' in command) {
+                if (!slashCommands.has(command.data.name)) {
+                    slashCommands.set(command.data.name, command as SlashCommand);
+                    loaded++;
+                }
+            } else if (command.name) {
+                messageCommands.set(command.name, command as MessageCommand);
+                for (const alias of command.aliases ?? []) {
+                    if (!messageCommands.has(alias)) messageCommands.set(alias, command as MessageCommand);
+                }
+                loaded++;
             }
+        } catch (error) {
+            console.error(`Error loading command from ${filePath}:`, error);
         }
     }
-};
+    return String(loaded);
+}
 
-export const registerCommands = async (token: string, clientId: string) => {
-    const rest = new REST().setToken(token);
+export async function loadCommands(): Promise<{ message: number; slash: number }> {
+    messageCommands.clear();
+    slashCommands.clear();
+    const message = await loadFromDirectory(path.join(__dirname, '..', 'commands', 'message'));
+    const slash = await loadFromDirectory(path.join(__dirname, '..', 'commands', 'slash'));
+    console.log(`⚡ Loaded ${message} message commands and ${slash} slash commands!`);
+    return { message: Number(message), slash: Number(slash) };
+}
+
+export async function registerSlashCommands(token: string, clientId: string): Promise<void> {
+    const commands = slashCommands.map((cmd) => cmd.data.toJSON());
+    if (commands.length === 0) return;
+    const rest = new REST({ version: '10' }).setToken(token);
     try {
-        console.log(`Started refreshing ${commandData.length} application (/) commands.`);
-
-        // The put method is used to fully refresh all commands in the guild with the current set
-        const data: any = await rest.put(
-            Routes.applicationCommands(clientId),
-            { body: commandData },
-        );
-
-        console.log(`Successfully reloaded ${data.length} application (/) commands.`);
+        await rest.put(Routes.applicationCommands(clientId), { body: commands });
+        console.log(`✅ Registered ${commands.length} slash commands successfully!`);
     } catch (error) {
-        console.error(error);
+        console.error('❌ Failed to register slash commands:', error);
     }
 }

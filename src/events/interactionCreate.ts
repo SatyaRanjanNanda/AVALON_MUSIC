@@ -1,35 +1,43 @@
-import { Interaction, Events } from 'discord.js';
-import { commands } from '../handlers/commandHandler';
-import { CommandContext } from '../structures/CommandContext';
-import { handleButtonInteraction, handleSelectMenuInteraction } from '../handlers/buttonHandler';
+import { Events, type Client, type Interaction } from 'discord.js';
+import { slashCommands } from '../handlers/commandHandler';
+import { handleFilterSelect, handleMusicButton } from '../handlers/buttonHandler';
+import { createErrorEmbed } from '../utils/embedUtils';
 
 export const name = Events.InteractionCreate;
-export const execute = async (interaction: Interaction) => {
-    if (interaction.isButton()) {
-        return handleButtonInteraction(interaction);
-    }
-    if (interaction.isStringSelectMenu()) {
-        return handleSelectMenuInteraction(interaction);
-    }
+export const once = false;
 
-    if (!interaction.isChatInputCommand()) return;
+export async function execute(client: Client, interaction: Interaction): Promise<void> {
+    if (interaction.isChatInputCommand()) {
+        const command = slashCommands.get(interaction.commandName);
+        if (!command) {
+            await interaction.reply({ content: '❌ Command not found!', ephemeral: true }).catch(() => undefined);
+            return;
+        }
 
-    const command = commands.get(interaction.commandName);
-
-    if (!command) {
-        console.error(`No command matching ${interaction.commandName} was found.`);
+        try {
+            await command.execute(interaction);
+        } catch (error) {
+            console.error(`Error executing slash command "${interaction.commandName}":`, error);
+            const embed = createErrorEmbed('❌ An error occurred while executing that command.');
+            if (interaction.replied || interaction.deferred) {
+                await interaction.editReply({ embeds: [embed] }).catch(() => undefined);
+            } else {
+                await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => undefined);
+            }
+        }
         return;
     }
 
-    try {
-        const context = new CommandContext(interaction);
-        await command.execute(context);
-    } catch (error) {
-        console.error(error);
-        if (interaction.replied || interaction.deferred) {
-            await interaction.followUp({ content: 'There was an error while executing this command!', ephemeral: true }).catch(console.error);
-        } else {
-            await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true }).catch(console.error);
-        }
+    if (interaction.isButton()) {
+        await handleMusicButton(interaction).catch((error) => {
+            console.error('Button handler error:', error);
+        });
+        return;
     }
-};
+
+    if (interaction.isStringSelectMenu() && interaction.customId === 'filter') {
+        await handleFilterSelect(interaction).catch((error) => {
+            console.error('Filter select error:', error);
+        });
+    }
+}

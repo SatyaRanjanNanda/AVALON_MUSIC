@@ -27,10 +27,10 @@ export const client = new Client({
 
 // Configure Lavalink nodes
 const Nodes = [{
-    name: 'HeavenCloud Public Node',
-    url: process.env.LAVALINK_URL || 'free-lava.heavencloud.in:4000',
-    auth: process.env.LAVALINK_AUTH || 'heavencloud.in',
-    secure: process.env.LAVALINK_SECURE === 'true'
+    name: 'Serenetia Public Node',
+    url: process.env.LAVALINK_URL || 'lavalinkv4.serenetia.com:443',
+    auth: process.env.LAVALINK_AUTH || 'https://seretia.link/discord',
+    secure: process.env.LAVALINK_SECURE !== 'false'
 }];
 
 // Initialize Shoukaku

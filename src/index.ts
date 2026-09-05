@@ -26,11 +26,16 @@ export const client = new Client({
 });
 
 // Configure Lavalink nodes
+const LAVALINK_URL = (process.env.LAVALINK_URL || '').replace(/['"]/g, '').replace(':2333', ':443').trim() || 'lavalink-production-d106.up.railway.app:443';
+const LAVALINK_AUTH = (process.env.LAVALINK_AUTH || '').replace(/['"]/g, '').trim() || 'youshallnotpass';
+
+console.log(`[DEBUG] Attempting to connect to Lavalink at: ${LAVALINK_URL} with password length: ${LAVALINK_AUTH.length}`);
+
 const Nodes = [
     {
         name: 'Railway Private Node',
-        url: (process.env.LAVALINK_URL || '').replace(/['"]/g, '').replace(':2333', ':443'),
-        auth: (process.env.LAVALINK_AUTH || '').replace(/['"]/g, ''),
+        url: LAVALINK_URL,
+        auth: LAVALINK_AUTH,
         secure: process.env.LAVALINK_SECURE !== 'false'
     }
 ];

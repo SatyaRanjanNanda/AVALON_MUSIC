@@ -1,12 +1,5 @@
 [
   {
-    "name": "AjieBlogs EU",
-    "host": "lava-v4.ajieblogs.eu.org",
-    "port": 443,
-    "password": "https://dsc.gg/ajidevserver",
-    "secure": true
-  },
-  {
     "name": "Millohost",
     "host": "lava-v4.millohost.my.id",
     "port": 443,

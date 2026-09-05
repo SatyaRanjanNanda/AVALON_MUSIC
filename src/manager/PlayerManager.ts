@@ -12,7 +12,7 @@ export type PlayResult =
     | { type: 'track'; track: Track }
     | { type: 'error'; message: string };
 
-const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'spsearch'];
+const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'spsearch', 'amsearch'];
 
 interface FallbackResolveResult {
     loadType: string | null;

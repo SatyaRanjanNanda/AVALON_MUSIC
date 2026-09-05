@@ -28,9 +28,9 @@ export const client = new Client({
 // Configure Lavalink nodes
 const Nodes = [{
     name: 'Serenetia Public Node',
-    url: process.env.LAVALINK_URL || 'lavalinkv4.serenetia.com:443',
-    auth: process.env.LAVALINK_AUTH || 'https://seretia.link/discord',
-    secure: process.env.LAVALINK_SECURE !== 'false'
+    url: process.env.LAVALINK_URL || 'lavalinkv4.serenetia.com:80',
+    auth: process.env.LAVALINK_AUTH || 'https://dsc.gg/ajidevserver',
+    secure: process.env.LAVALINK_SECURE === 'true'
 }];
 
 // Initialize Shoukaku

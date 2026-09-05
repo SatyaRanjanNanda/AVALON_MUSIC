@@ -36,7 +36,7 @@ const Nodes = [
         name: 'Railway Private Node',
         url: LAVALINK_URL,
         auth: LAVALINK_AUTH,
-        secure: process.env.LAVALINK_SECURE !== 'false'
+        secure: true
     }
 ];
 

@@ -17,7 +17,7 @@ const command: MessageCommand = {
             return;
         }
 
-        const blocked = ['@everyone', '@here', '<@', '>', '\\', '`'];
+        const blocked = ['@everyone', '@here', '<@', '\\', '`'];
         if (newPrefix.length > 3 || blocked.some((token) => newPrefix.includes(token))) {
             await message.reply({
                 embeds: [createErrorEmbed('❌ Invalid prefix! Use 1-3 characters without spaces, mentions or special symbols.')]

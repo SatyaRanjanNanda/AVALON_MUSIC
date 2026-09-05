@@ -29,8 +29,8 @@ export const client = new Client({
 const Nodes = [
     {
         name: 'Railway Private Node',
-        url: process.env.LAVALINK_URL || 'lavalink-production-d106.up.railway.app:443',
-        auth: process.env.LAVALINK_AUTH || 'youshallnotpass',
+        url: (process.env.LAVALINK_URL || '').replace(/['"]/g, '').replace(':2333', ':443'),
+        auth: (process.env.LAVALINK_AUTH || '').replace(/['"]/g, ''),
         secure: process.env.LAVALINK_SECURE !== 'false'
     }
 ];

@@ -42,7 +42,7 @@ export class CommandContext {
         }
     }
 
-    public async reply(content: string | MessagePayload | MessageReplyOptions): Promise<any> {
+    public async reply(content: string | any): Promise<any> {
         if (this.isInteraction) {
             if (this.interaction!.deferred || this.interaction!.replied) {
                 return await this.interaction!.followUp(content);
@@ -53,7 +53,7 @@ export class CommandContext {
         }
     }
 
-    public async editReply(content: string | MessagePayload | MessageReplyOptions): Promise<any> {
+    public async editReply(content: string | any): Promise<any> {
         if (this.isInteraction) {
             return await this.interaction!.editReply(content);
         } else {

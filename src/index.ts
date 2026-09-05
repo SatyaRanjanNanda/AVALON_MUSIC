@@ -26,8 +26,8 @@ export const client = new Client({
 });
 
 // Configure Lavalink nodes
-const LAVALINK_URL = (process.env.LAVALINK_URL || '').replace(/['"]/g, '').replace(':2333', ':443').trim() || 'lavalink-production-0a82.up.railway.app:443';
-const LAVALINK_AUTH = (process.env.LAVALINK_AUTH || '').replace(/['"]/g, '').trim() || 'youshallnotpass';
+const LAVALINK_URL = (process.env.LAVALINK_URL || '').replace(/['"]/g, '').replace(':2333', ':443').trim();
+const LAVALINK_AUTH = (process.env.LAVALINK_AUTH || '').replace(/['"]/g, '').trim();
 
 console.log(`[DEBUG] Attempting to connect to Lavalink at: ${LAVALINK_URL} with password length: ${LAVALINK_AUTH.length}`);
 

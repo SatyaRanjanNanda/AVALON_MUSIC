@@ -101,6 +101,7 @@ export class SettingsStore {
                 update: {}
             });
         } catch (error) {
+            console.error(`[settings] Error fetching guild settings for ${guildId}:`, error);
             this.dbAvailable = false;
         }
         return fallback;
@@ -139,7 +140,8 @@ export class SettingsStore {
                         centralAllowedRoles: updated.centralAllowedRoles
                     }
                 });
-            } catch {
+            } catch (error) {
+                console.error(`[settings] Error saving guild settings for ${guildId}:`, error);
                 /* keep in-memory */
             }
         }

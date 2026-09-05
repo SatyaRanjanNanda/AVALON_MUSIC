@@ -1,23 +1,32 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import { Command } from '../../types';
 import { shoukaku } from '../../index';
+import { CommandContext } from '../../structures/CommandContext';
 
 const stopCommand: Command = {
     data: new SlashCommandBuilder()
         .setName('stop')
-        .setDescription('Stops the music and clears the queue'),
-    execute: async (interaction: ChatInputCommandInteraction) => {
-        const player = shoukaku.players.get(interaction.guildId!);
+        .setDescription('Stops the music and leaves the channel'),
+    execute: async (context: CommandContext) => {
+        await context.deferReply();
+
+        const player = shoukaku.players.get(context.guildId!);
         
         if (!player) {
-            await interaction.reply({ content: 'No music is currently playing.', ephemeral: true });
+            await context.editReply('There is no music playing in this server.');
             return;
         }
 
-        // Leave the voice channel
-        await shoukaku.leaveVoiceChannel(interaction.guildId!);
+        const member = context.member;
+        const voiceChannel = member?.voice.channel;
 
-        await interaction.reply('Stopped the music and left the voice channel.');
+        if (!voiceChannel) {
+            await context.editReply('You must be in a voice channel to stop music.');
+            return;
+        }
+
+        await shoukaku.leaveVoiceChannel(context.guildId!);
+        await context.editReply('?? Stopped the music and left the channel!');
     }
 };
 

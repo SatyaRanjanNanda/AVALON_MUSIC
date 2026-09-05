@@ -1,24 +1,32 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import { Command } from '../../types';
 import { shoukaku } from '../../index';
+import { CommandContext } from '../../structures/CommandContext';
 
 const skipCommand: Command = {
     data: new SlashCommandBuilder()
         .setName('skip')
         .setDescription('Skips the current song'),
-    execute: async (interaction: ChatInputCommandInteraction) => {
-        const player = shoukaku.players.get(interaction.guildId!);
+    execute: async (context: CommandContext) => {
+        await context.deferReply();
+
+        const player = shoukaku.players.get(context.guildId!);
         
         if (!player) {
-            await interaction.reply({ content: 'No music is currently playing.', ephemeral: true });
+            await context.editReply('There is no music playing in this server.');
             return;
         }
 
-        // Shoukaku v4 stops the track when we call stopTrack(). If we had a queue system we'd play the next one.
-        // For now this will just stop the current track.
-        await player.stopTrack();
+        const member = context.member;
+        const voiceChannel = member?.voice.channel;
 
-        await interaction.reply('Skipped the current song.');
+        if (!voiceChannel) {
+            await context.editReply('You must be in a voice channel to skip music.');
+            return;
+        }
+
+        await player.stopTrack(); // Emits end event for next song if queue is implemented
+        await context.editReply('?? Skipped the track!');
     }
 };
 

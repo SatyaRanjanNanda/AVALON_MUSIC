@@ -1,6 +1,7 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction, GuildMember } from 'discord.js';
+import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { Command } from '../../types';
 import { shoukaku } from '../../index';
+import { CommandContext } from '../../structures/CommandContext';
 
 const playCommand: Command = {
     data: new SlashCommandBuilder()
@@ -11,54 +12,85 @@ const playCommand: Command = {
                 .setDescription('The song name or URL')
                 .setRequired(true)
         ),
-    execute: async (interaction: ChatInputCommandInteraction) => {
-        await interaction.deferReply();
+    execute: async (context: CommandContext) => {
+        await context.deferReply();
         
-        const member = interaction.member as GuildMember;
-        const voiceChannel = member.voice.channel;
+        const member = context.member;
+        const voiceChannel = member?.voice.channel;
         
         if (!voiceChannel) {
-            await interaction.editReply('You must be in a voice channel to play music.');
+            await context.editReply('You must be in a voice channel to play music.');
             return;
         }
 
-        const query = interaction.options.getString('query', true);
+        let query = '';
+        if (context.isInteraction) {
+            query = context.interaction!.options.getString('query', true);
+        } else {
+            if (context.args.length === 0) {
+                await context.editReply('Please provide a song name or URL.');
+                return;
+            }
+            query = context.args.join(' ');
+        }
         
-        // Get a lavalink node
         const node = shoukaku.options.nodeResolver(shoukaku.nodes);
         if (!node) {
-            await interaction.editReply('No Lavalink nodes are available.');
+            await context.editReply('No Lavalink nodes are available.');
             return;
         }
 
-        // Search for the track
-        const result = await node.rest.resolve(`ytmsearch:${query}`);
+        const result = await node.rest.resolve(\ytmsearch:\\);
         if (!result || !result.data || !Array.isArray(result.data) || result.data.length === 0) {
-            await interaction.editReply('No results found.');
+            await context.editReply('No results found.');
             return;
         }
 
         const track = result.data[0];
 
-        // Join the voice channel
-        let player = shoukaku.players.get(interaction.guildId!);
+        let player = shoukaku.players.get(context.guildId!);
         if (!player) {
             player = await shoukaku.joinVoiceChannel({
-                guildId: interaction.guildId!,
+                guildId: context.guildId!,
                 channelId: voiceChannel.id,
-                shardId: 0 // Default shard id
+                shardId: 0
             });
         }
 
         if (!player) {
-            await interaction.editReply('Failed to join the voice channel.');
+            await context.editReply('Failed to join the voice channel.');
             return;
         }
 
-        // Play the track
         await player.playTrack({ track: { encoded: track.encoded } });
 
-        await interaction.editReply(`Now playing: **${track.info.title}** by ${track.info.author}`);
+        const embed = new EmbedBuilder()
+            .setColor('#0099ff')
+            .setTitle('Now Playing')
+            .setDescription(\**\**\nby \\)
+            .setURL(track.info.uri || null);
+
+        const row = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('music_pause')
+                    .setEmoji('??')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId('music_skip')
+                    .setEmoji('??')
+                    .setStyle(ButtonStyle.Secondary),
+                new ButtonBuilder()
+                    .setCustomId('music_stop')
+                    .setEmoji('??')
+                    .setStyle(ButtonStyle.Danger),
+                new ButtonBuilder()
+                    .setCustomId('music_filter_menu')
+                    .setEmoji('???')
+                    .setStyle(ButtonStyle.Success)
+            );
+
+        await context.editReply({ embeds: [embed], components: [row] });
     }
 };
 

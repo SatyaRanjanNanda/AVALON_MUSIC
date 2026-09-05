@@ -1,6 +1,7 @@
-import { SlashCommandBuilder, ChatInputCommandInteraction } from 'discord.js';
+import { SlashCommandBuilder } from 'discord.js';
 import { Command } from '../../types';
 import { shoukaku } from '../../index';
+import { CommandContext } from '../../structures/CommandContext';
 
 const filterCommand: Command = {
     data: new SlashCommandBuilder()
@@ -18,15 +19,24 @@ const filterCommand: Command = {
                     { name: 'Clear', value: 'clear' }
                 )
         ),
-    execute: async (interaction: ChatInputCommandInteraction) => {
-        const player = shoukaku.players.get(interaction.guildId!);
+    execute: async (context: CommandContext) => {
+        const player = shoukaku.players.get(context.guildId!);
         
         if (!player) {
-            await interaction.reply({ content: 'No music is currently playing.', ephemeral: true });
+            await context.reply({ content: 'No music is currently playing.', ephemeral: true });
             return;
         }
 
-        const preset = interaction.options.getString('preset', true);
+        let preset = '';
+        if (context.isInteraction) {
+            preset = context.interaction!.options.getString('preset', true);
+        } else {
+            preset = context.args[0]?.toLowerCase();
+            if (!preset) {
+                await context.reply('Please provide a filter preset (bassboost, nightcore, 8d, vaporwave, clear).');
+                return;
+            }
+        }
 
         switch (preset) {
             case 'bassboost':
@@ -43,11 +53,7 @@ const filterCommand: Command = {
                 break;
             case 'nightcore':
                 await player.setFilters({
-                    timescale: {
-                        speed: 1.1,
-                        pitch: 1.2,
-                        rate: 1.0
-                    }
+                    timescale: { speed: 1.1, pitch: 1.2, rate: 1.0 }
                 });
                 break;
             case '8d':
@@ -57,19 +63,18 @@ const filterCommand: Command = {
                 break;
             case 'vaporwave':
                 await player.setFilters({
-                    timescale: {
-                        speed: 0.85,
-                        pitch: 0.8,
-                        rate: 1.0
-                    }
+                    timescale: { speed: 0.85, pitch: 0.8, rate: 1.0 }
                 });
                 break;
             case 'clear':
                 await player.clearFilters();
                 break;
+            default:
+                await context.reply('Unknown filter preset.');
+                return;
         }
 
-        await interaction.reply(`Applied filter: **${preset}**`);
+        await context.reply(\Applied filter: **\**\);
     }
 };
 

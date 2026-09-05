@@ -120,7 +120,11 @@ export class PlayerManager {
         if (tracks.length <= 1) return tracks[0];
 
         const q = query.toLowerCase();
-        const badTags = /(remix|instrumental|karaoke|cover|slowed|sped up|reverb|extended|nightcore|8d ?audio|bass ?boost|relax(ing)?|reimagined|acoustic|tiktok|future house|top 100|popular songs|mix|megamix|mashup)/;
+        const tagWords = ['remix', 'instrumental', 'karaoke', 'cover', 'slowed', 'sped up', 'reverb', 'extended', 'nightcore', 'acoustic', 'mashup', 'megamix', '8d audio', 'bass boost', 'relaxing'];
+        const tagRegex = (word: string): string => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const requestedTags = tagWords.filter((tag) => q.includes(tag));
+        const penalizedTags = tagWords.filter((tag) => !requestedTags.includes(tag));
+        const badTags = new RegExp(`(${penalizedTags.map(tagRegex).join('|')})`);
         const goodTags = /\b(official|official audio|official video|audio)\b/;
 
         let best: Track | undefined = tracks[0];
@@ -132,7 +136,11 @@ export class PlayerManager {
             const author = (track?.info?.author || '').toLowerCase();
 
             let score = 1000 - i * 12;
-            if (badTags.test(title)) score -= 450;
+            if (penalizedTags.length > 0 && badTags.test(title)) score -= 450;
+            if (requestedTags.length > 0) {
+                const titleTags = requestedTags.filter((tag) => title.includes(tag)).length;
+                score += titleTags * 200;
+            }
             if (goodTags.test(title)) score += 120;
             if (author && q.length > 3 && (q.includes(author) || author.includes(q))) score += 80;
 

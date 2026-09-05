@@ -32,24 +32,6 @@ const Nodes = [
         url: process.env.LAVALINK_URL || 'lavalink-production-d106.up.railway.app:443',
         auth: process.env.LAVALINK_AUTH || 'youshallnotpass',
         secure: process.env.LAVALINK_SECURE !== 'false'
-    },
-    {
-        name: 'Serenetia V4 Public',
-        url: 'lavalinkv4.serenetia.com:443',
-        auth: 'https://seretia.link/discord',
-        secure: true
-    },
-    {
-        name: 'Serenetia V4 Alt',
-        url: 'lavalinkv4.serenetia.com:80',
-        auth: 'https://dsc.gg/ajidevserver',
-        secure: false
-    },
-    {
-        name: 'HeavenCloud Public Node',
-        url: 'free-lava.heavencloud.in:4000',
-        auth: 'heavencloud.in',
-        secure: false
     }
 ];
 

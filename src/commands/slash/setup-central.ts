@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChannelType, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { MessageFlags, SlashCommandBuilder, ChannelType, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
 import type { SlashCommand } from '../../types';
 import { client, settings } from '../../core';
 import { CentralEmbedHandler } from '../../utils/centralEmbed';
@@ -20,7 +20,7 @@ const command: SlashCommand = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels)
         .setDMPermission(false),
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const guildId = interaction.guildId;
         if (!guildId) return;
 

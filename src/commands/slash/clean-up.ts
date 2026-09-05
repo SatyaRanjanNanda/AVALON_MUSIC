@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { MessageFlags, SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import type { SlashCommand } from '../../types';
 import { client } from '../../core';
 
@@ -9,7 +9,7 @@ const command: SlashCommand = {
         .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages)
         .setDMPermission(false),
     async execute(interaction) {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
         const channel = interaction.channel;
         if (!channel || !('messages' in channel)) {
             await interaction.editReply({ content: '❌ This command can only be used in a text channel!' });

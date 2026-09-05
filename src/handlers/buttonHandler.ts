@@ -1,4 +1,4 @@
-import { EmbedBuilder, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
+import { EmbedBuilder, MessageFlags, type ButtonInteraction, type StringSelectMenuInteraction } from 'discord.js';
 import { music, riffy, settings } from '../core';
 import { ConditionChecker } from '../utils/checks';
 import { queueEmbed, successEmbed, errorEmbed } from '../utils/embedUtils';
@@ -14,7 +14,7 @@ async function getPlayer(guildId: string) {
 async function replyOn(interaction: ButtonInteraction, text: string[] | string, error = false) {
     const lines = Array.isArray(text) ? text : [text];
     const embed = error ? errorEmbed(lines.join('\n')) : successEmbed(lines.join('\n'));
-    await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => undefined);
+    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => undefined);
     setTimeout(() => interaction.deleteReply().catch(() => undefined), 3000);
 }
 
@@ -113,7 +113,7 @@ export async function handleMusicButton(interaction: ButtonInteraction): Promise
         case 'music_queue':
         case 'p:queue': {
             const embed = await queueEmbed(guildId, 1);
-            await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => undefined);
+await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => undefined);
             break;
         }
         case 'music_shuffle':

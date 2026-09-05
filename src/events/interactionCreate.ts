@@ -1,4 +1,4 @@
-import { Events, type Client, type Interaction } from 'discord.js';
+import { Events, MessageFlags, type Client, type Interaction } from 'discord.js';
 import { slashCommands } from '../handlers/commandHandler';
 import { handleFilterSelect, handleMusicButton } from '../handlers/buttonHandler';
 import { createErrorEmbed } from '../utils/embedUtils';
@@ -10,7 +10,7 @@ export async function execute(client: Client, interaction: Interaction): Promise
     if (interaction.isChatInputCommand()) {
         const command = slashCommands.get(interaction.commandName);
         if (!command) {
-            await interaction.reply({ content: '❌ Command not found!', ephemeral: true }).catch(() => undefined);
+            await interaction.reply({ content: '❌ Command not found!', flags: MessageFlags.Ephemeral }).catch(() => undefined);
             return;
         }
 
@@ -22,7 +22,7 @@ export async function execute(client: Client, interaction: Interaction): Promise
             if (interaction.replied || interaction.deferred) {
                 await interaction.editReply({ embeds: [embed] }).catch(() => undefined);
             } else {
-                await interaction.reply({ embeds: [embed], ephemeral: true }).catch(() => undefined);
+                await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => undefined);
             }
         }
         return;

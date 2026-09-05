@@ -12,6 +12,14 @@ export type PlayResult =
     | { type: 'track'; track: Track }
     | { type: 'error'; message: string };
 
+const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'spsearch'];
+
+interface FallbackResolveResult {
+    loadType: string | null;
+    tracks: Track[];
+    playlistInfo: { name?: string | null } | null;
+}
+
 export class PlayerManager {
     private client: Client;
     private central: CentralEmbedHandler;
@@ -72,7 +80,7 @@ export class PlayerManager {
         try {
             if (!player) return { type: 'error', message: 'Player not available' };
 
-            const resolve = await riffy.resolve({ query, requester });
+            const resolve = await this.resolveWithFallback(query, requester);
             const { loadType, tracks, playlistInfo } = resolve;
 
             if (loadType === 'playlist') {
@@ -108,9 +116,37 @@ export class PlayerManager {
         }
     }
 
+    private async resolveWithFallback(query: string, requester: unknown): Promise<FallbackResolveResult> {
+        const trimmed = query.trim();
+        if (/^https?:\/\//i.test(trimmed)) {
+            return riffy.resolve({ query: trimmed, requester }).catch(() => ({
+                loadType: 'empty',
+                tracks: [],
+                playlistInfo: { name: '' }
+            }));
+        }
+
+        const platforms = [...new Set([config.lavalink.defaultSearchPlatform, ...FALLBACK_SEARCH_PLATFORMS])];
+        let last: FallbackResolveResult = { loadType: 'empty', tracks: [], playlistInfo: { name: '' } };
+
+        for (const platform of platforms) {
+            try {
+                const result = await riffy.resolve({ query: `${platform}:${trimmed}`, requester });
+                last = result;
+                const { loadType, tracks } = result;
+                if (loadType === 'playlist' || ((loadType === 'track' || loadType === 'search') && tracks.length > 0)) {
+                    return result;
+                }
+            } catch (error) {
+                console.error(`Search fallback error on ${platform}:`, (error as Error)?.message || error);
+            }
+        }
+        return last;
+    }
+
     async resolve(query: string): Promise<ResolvedTracks> {
         try {
-            const response = await riffy.resolve({ query, requester: null });
+            const response = await this.resolveWithFallback(query, null);
             if (!response || !response.tracks) {
                 return { loadType: 'error', tracks: [], name: null };
             }

@@ -203,8 +203,7 @@ export class PlayerManager {
         const attempt = (state.recoveries || 0) + 1;
         if (attempt > maxRecoveries) {
             state.failsafePending = false;
-            console.warn(`⚠️ Giving up on ${player.guildId} after ${maxRecoveries} recovery attempts, leaving VC.`);
-            await this.destroy(player.guildId).catch(() => undefined);
+            console.warn(`⚠️ Giving up on ${player.guildId} after ${maxRecoveries} recovery attempts, keeping bot in VC.`);
             return;
         }
 
@@ -235,8 +234,7 @@ export class PlayerManager {
             }
         }
 
-        console.warn(`⚠️ Recovery failed for ${player.guildId}, leaving VC.`);
-        await this.destroy(player.guildId).catch(() => undefined);
+        console.warn(`⚠️ Recovery failed for ${player.guildId}, keeping bot in VC.`);
     }
 
     private pickBestTrack(tracks: Track[], query: string): Track | undefined {
@@ -620,18 +618,10 @@ export class PlayerManager {
             }
 
             if (player.isAutoplay) {
-                await player.autoplay(player).catch(() => player.destroy());
-            } else {
-                if (status) await status.onPlayerDisconnect(player.guildId);
-                player.destroy();
+                await player.autoplay(player).catch(() => undefined);
             }
         } catch (error) {
             console.error('Queue end error:', (error as Error)?.message || error);
-            try {
-                player.destroy();
-            } catch {
-                /* noop */
-            }
         }
     }
 

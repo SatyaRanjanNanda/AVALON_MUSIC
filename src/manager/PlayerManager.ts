@@ -769,6 +769,9 @@ export class PlayerManager {
                     this.recoverPlayerFailure(player).catch(() => undefined);
                 }, 1500);
             }
+
+            // Forcefully stop the player so it skips to the next track or ends the queue
+            try { player.stop(); } catch { /* noop */ }
         });
     }
 }

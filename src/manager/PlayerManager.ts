@@ -160,27 +160,19 @@ export class PlayerManager {
 
     // (Removed recordLastQuery)
 
-    private async resolveSoundCloud(query: string, requester: unknown): Promise<Track | null> {
-        const searchTerm = query
-            .trim()
-            .replace(/^(ytsearch|ytmsearch|scsearch|spsearch|amsearch|dzsearch|ymsearch):/i, '');
-        if (!searchTerm) return null;
-
-        const nodes = this.connectedNodes();
-        for (const node of nodes) {
-            try {
-                const result = await withTimeout(
-                    riffy.resolve({ query: searchTerm, source: 'scsearch', requester, node }),
-                    NODE_REQUEST_TIMEOUT_MS
+    private async resolveAlternativeTrack(query: string, failedTrack: Track): Promise<Track | null> {
+        try {
+            const result = await this.resolveWithFallback(query, failedTrack.info.requester);
+            if (result.tracks && result.tracks.length > 0) {
+                // Find a track that is different from the one that failed
+                const alternative = result.tracks.find(t => 
+                    t.info.identifier !== failedTrack.info.identifier && 
+                    t.info.uri !== failedTrack.info.uri
                 );
-                const { loadType, tracks } = result;
-                if (loadType === 'track' || (loadType === 'search' && tracks.length > 0)) {
-                    const track = loadType === 'track' ? tracks[0] : this.pickBestTrack(tracks, query);
-                    if (track?.info?.sourceName === 'soundcloud') return track;
-                }
-            } catch (error) {
-                console.error(`SoundCloud failsafe error on ${node.name}:`, (error as Error)?.message || error);
+                return alternative || null;
             }
+        } catch (error) {
+            console.warn('Alternative track search error:', (error as Error)?.message || error);
         }
         return null;
     }
@@ -189,19 +181,18 @@ export class PlayerManager {
         const query = `${failedTrack.info.title} ${failedTrack.info.author}`;
         console.log(`🔄 Attempting to recover failed track: ${query}`);
 
-        const scTrack = await this.resolveSoundCloud(query, failedTrack.info.requester);
-        if (scTrack) {
-            console.log(`✅ Recovery successful, found SoundCloud fallback for ${player.guildId}.`);
+        const fallbackTrack = await this.resolveAlternativeTrack(query, failedTrack);
+        if (fallbackTrack) {
+            console.log(`✅ Recovery successful, found alternative fallback for ${player.guildId}.`);
             
             if (player.current && player.current.info.title !== failedTrack.info.title) {
                 // Riffy already auto-skipped to the next track.
-                // Put it back in the queue so it plays after our fallback.
                 player.queue.unshift(player.current);
-                player.queue.unshift(scTrack);
+                player.queue.unshift(fallbackTrack);
                 try { player.stop(); } catch { /* noop */ }
             } else {
                 // Riffy is stopped or still stuck on the failed track.
-                player.queue.unshift(scTrack);
+                player.queue.unshift(fallbackTrack);
                 try { player.stop(); } catch { /* noop */ }
                 if (!player.playing && !player.paused) {
                     await player.play().catch(() => undefined);
@@ -265,11 +256,14 @@ export class PlayerManager {
             }
         }
 
-        const searchTerm = trimmed.replace(
-            /^(ytsearch|ytmsearch|scsearch|spsearch|amsearch|dzsearch|ymsearch):/i,
-            ''
-        );
-        const platforms = [...new Set([config.lavalink.defaultSearchPlatform, ...FALLBACK_SEARCH_PLATFORMS])];
+        const prefixMatch = trimmed.match(/^(ytsearch|ytmsearch|scsearch|spsearch|amsearch|dzsearch|ymsearch):/i);
+        const specifiedPlatform = prefixMatch ? prefixMatch[1].toLowerCase() : null;
+        const searchTerm = trimmed.replace(/^(ytsearch|ytmsearch|scsearch|spsearch|amsearch|dzsearch|ymsearch):/i, '').trim();
+
+        const basePlatforms = [config.lavalink.defaultSearchPlatform, ...FALLBACK_SEARCH_PLATFORMS];
+        const platforms = specifiedPlatform 
+            ? [...new Set([specifiedPlatform, ...basePlatforms])]
+            : [...new Set(basePlatforms)];
         const attempts: string[] = [];
         const nodes = this.connectedNodes();
 

@@ -437,14 +437,9 @@ export class PlayerManager {
 
     async skip(guildId: string): Promise<boolean> {
         const player = this.getPlayer(guildId);
-        if (!player || !player.playing) return false;
+        if (!player) return false;
 
         player.stop();
-        if (player.queue.size > 0) {
-            await player.play().catch(() => undefined);
-        } else {
-            await this.handleQueueEnd(player);
-        }
         return true;
     }
 

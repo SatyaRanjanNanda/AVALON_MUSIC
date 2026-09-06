@@ -164,12 +164,13 @@ export class PlayerManager {
         try {
             const result = await this.resolveWithFallback(query, failedTrack.info.requester);
             if (result.tracks && result.tracks.length > 0) {
-                // Find a track that is different from the one that failed
-                const alternative = result.tracks.find(t => 
+                const filteredTracks = result.tracks.filter(t => 
                     t.info.identifier !== failedTrack.info.identifier && 
                     t.info.uri !== failedTrack.info.uri
                 );
-                return alternative || null;
+                if (filteredTracks.length > 0) {
+                    return this.pickBestTrack(filteredTracks, query);
+                }
             }
         } catch (error) {
             console.warn('Alternative track search error:', (error as Error)?.message || error);
@@ -207,12 +208,18 @@ export class PlayerManager {
         if (tracks.length <= 1) return tracks[0];
 
         const q = query.toLowerCase();
-        const tagWords = ['remix', 'instrumental', 'karaoke', 'cover', 'slowed', 'sped up', 'reverb', 'extended', 'nightcore', 'acoustic', 'mashup', 'megamix', '8d audio', 'bass boost', 'relaxing'];
+        const tagWords = [
+            'remix', 'instrumental', 'karaoke', 'cover', 'slowed', 'sped up', 'reverb', 
+            'extended', 'nightcore', 'acoustic', 'mashup', 'megamix', '8d audio', 
+            'bass boost', 'bassboosted', 'relaxing', 'live', 'tiktok', 'lofi', 'type beat', 
+            'parody', 'reaction', '8d', 'bassed', 'clean'
+        ];
         const tagRegex = (word: string): string => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const requestedTags = tagWords.filter((tag) => q.includes(tag));
         const penalizedTags = tagWords.filter((tag) => !requestedTags.includes(tag));
-        const badTags = new RegExp(`(${penalizedTags.map(tagRegex).join('|')})`);
-        const goodTags = /\b(official|official audio|official video|audio)\b/;
+        
+        const badTags = new RegExp(`\\b(${penalizedTags.map(tagRegex).join('|')})\\b`, 'i');
+        const goodTags = /\b(official|official audio|official video|audio|original|lyrics|lyric video|music video)\b/i;
 
         let best: Track | undefined = tracks[0];
         let bestScore = -Infinity;
@@ -222,18 +229,20 @@ export class PlayerManager {
             const title = (track?.info?.title || '').toLowerCase();
             const author = (track?.info?.author || '').toLowerCase();
 
-            let score = 1000 - i * 12;
-            if (penalizedTags.length > 0 && badTags.test(title)) score -= 450;
+            let score = 1000 - (i * 12);
+            if (penalizedTags.length > 0 && badTags.test(title)) score -= 800;
             if (requestedTags.length > 0) {
                 const titleTags = requestedTags.filter((tag) => title.includes(tag)).length;
                 score += titleTags * 200;
             }
-            if (goodTags.test(title)) score += 120;
+            if (goodTags.test(title)) score += 150;
+            if (author.includes('vevo') || author.includes('official') || title.includes(author)) score += 100;
+            
             if (author && q.length > 3 && (q.includes(author) || author.includes(q))) score += 80;
 
-            const words = q.split(/\s+/).filter((w) => w.length > 3);
+            const words = q.split(/\s+/).filter((w) => w.length > 2);
             const matched = words.filter((w) => title.includes(w)).length;
-            score += matched * 40;
+            score += matched * 30;
             if (title === q) score += 200;
 
             if (score > bestScore) {

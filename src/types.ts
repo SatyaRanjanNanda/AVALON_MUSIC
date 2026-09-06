@@ -29,6 +29,9 @@ export interface PlayerAppState {
     nowPlayingMessageId: string | null;
     textChannelId: string;
     lastFilter: string | null;
+    lastQuery?: string;
+    lastRequester?: unknown;
+    failsafePending?: boolean;
 }
 
 export interface SlashCommand {

@@ -12,7 +12,7 @@ export type PlayResult =
     | { type: 'track'; track: Track }
     | { type: 'error'; message: string };
 
-const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'spsearch', 'amsearch'];
+const FALLBACK_SEARCH_PLATFORMS = ['scsearch', 'ytsearch', 'spsearch', 'amsearch'];
 const NODE_REQUEST_TIMEOUT_MS = 15000;
 
 interface FallbackResolveResult {
@@ -116,6 +116,8 @@ export class PlayerManager {
         try {
             if (!player) return { type: 'error', message: 'Player not available' };
 
+            this.recordLastQuery(player, query, requester);
+
             const resolve = await this.resolveWithFallback(query, requester);
             const { loadType, tracks, playlistInfo, exception } = resolve;
 
@@ -156,6 +158,40 @@ export class PlayerManager {
             console.error('Play song error:', (error as Error)?.message || error);
             return { type: 'error', message: 'Failed to play song' };
         }
+    }
+
+    private recordLastQuery(player: Player, query: string, requester: unknown): void {
+        if (/^https?:\/\//i.test(query.trim())) return;
+        const state = this.states.get(player.guildId);
+        if (!state) return;
+        state.lastQuery = query;
+        state.lastRequester = requester;
+        state.failsafePending = false;
+    }
+
+    private async resolveSoundCloud(query: string, requester: unknown): Promise<Track | null> {
+        const searchTerm = query
+            .trim()
+            .replace(/^(ytsearch|ytmsearch|scsearch|spsearch|amsearch|dzsearch|ymsearch):/i, '');
+        if (!searchTerm) return null;
+
+        const nodes = this.connectedNodes();
+        for (const node of nodes) {
+            try {
+                const result = await withTimeout(
+                    riffy.resolve({ query: searchTerm, source: 'scsearch', requester, node }),
+                    NODE_REQUEST_TIMEOUT_MS
+                );
+                const { loadType, tracks } = result;
+                if (loadType === 'track' || (loadType === 'search' && tracks.length > 0)) {
+                    const track = loadType === 'track' ? tracks[0] : this.pickBestTrack(tracks, query);
+                    if (track?.info?.sourceName === 'soundcloud') return track;
+                }
+            } catch (error) {
+                console.error(`SoundCloud failsafe error on ${node.name}:`, (error as Error)?.message || error);
+            }
+        }
+        return null;
     }
 
     private pickBestTrack(tracks: Track[], query: string): Track | undefined {
@@ -533,6 +569,25 @@ export class PlayerManager {
             const serverSettings = await this.settingsStore.get(player.guildId);
             await this.central.updateCentralEmbed(player.guildId, serverSettings, null);
 
+            const state = this.states.get(player.guildId);
+            if (state?.failsafePending && state.lastQuery) {
+                state.failsafePending = false;
+                const query = state.lastQuery;
+                const requester = state.lastRequester ?? null;
+                console.log(`🔄 Track failed in ${player.guildId}, searching SoundCloud as failsafe...`);
+                const scTrack = await this.resolveSoundCloud(query, requester);
+                if (scTrack) {
+                    scTrack.info.requester = requester;
+                    player.queue.add(scTrack);
+                    if (!player.playing && !player.paused) {
+                        await player.play().catch(() => undefined);
+                    }
+                    console.log(`🎵 SoundCloud failsafe playing: ${scTrack.info.title || 'Unknown'} in ${player.guildId}`);
+                    return;
+                }
+                console.warn(`⚠️ SoundCloud failsafe found no results for "${query}" in ${player.guildId}`);
+            }
+
             if (serverSettings.autoplay) {
                 player.isAutoplay = true;
             }
@@ -659,6 +714,18 @@ export class PlayerManager {
                     : payload.exception) || 'unknown';
             const code = payload?.exception?.severity ? ` [${payload.exception.severity}]` : '';
             console.error(`🔴 Track error in ${player.guildId} (node: ${player.node?.name || 'unknown'}): ${track?.info?.title || 'Unknown'}${code} -> ${reason}`);
+
+            const state = this.states.get(player.guildId);
+            if (
+                state &&
+                state.lastQuery &&
+                !state.failsafePending &&
+                track?.info?.sourceName !== 'soundcloud' &&
+                !/^https?:\/\//i.test(state.lastQuery.trim())
+            ) {
+                state.failsafePending = true;
+                console.log(`🔄 Marking failed track in ${player.guildId} for SoundCloud failsafe retry...`);
+            }
         });
     }
 }

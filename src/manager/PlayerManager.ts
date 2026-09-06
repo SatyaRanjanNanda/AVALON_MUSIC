@@ -169,7 +169,7 @@ export class PlayerManager {
                     t.info.uri !== failedTrack.info.uri
                 );
                 if (filteredTracks.length > 0) {
-                    return this.pickBestTrack(filteredTracks, query);
+                    return this.pickBestTrack(filteredTracks, query) || null;
                 }
             }
         } catch (error) {

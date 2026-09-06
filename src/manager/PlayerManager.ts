@@ -649,9 +649,28 @@ export class PlayerManager {
             console.log(`🟡 Lavalink node disconnected: ${node.name} (reason: ${reason || 'unknown'})`);
         });
 
+        riffy.on('playerMigrated', (player, oldNode, newNode) => {
+            console.log(`🔄 Player ${player.guildId} migrated from ${oldNode?.name || 'unknown'} to ${newNode?.name || 'unknown'} (track: ${player.current?.info?.title || 'resuming'})`);
+        });
+
+        riffy.on('playerMigrationFailed', async (player, error) => {
+            console.error(`🔴 Player ${player.guildId} migration failed: ${error?.message || error}`);
+            const state = this.states.get(player.guildId);
+            if (state?.lastQuery && !state.failsafePending && player.current?.info?.sourceName !== 'soundcloud') {
+                state.failsafePending = true;
+            }
+            try {
+                await this.handleQueueEnd(player);
+            } catch (err) {
+                console.error('Migration fail cleanup error:', (err as Error)?.message || err);
+            }
+        });
+
         riffy.on('trackStart', async (player, track) => {
             try {
                 console.log(`🎵 Started playing: ${track?.info?.title || 'Unknown Track'} in ${player.guildId} (node: ${player.node?.name || 'unknown'})`);
+                const state = this.states.get(player.guildId);
+                if (state) state.failsafePending = false;
                 const info = await this.getPlayerInfo(player.guildId);
                 if (!info) return;
 
@@ -725,6 +744,13 @@ export class PlayerManager {
             ) {
                 state.failsafePending = true;
                 console.log(`🔄 Marking failed track in ${player.guildId} for SoundCloud failsafe retry...`);
+                setTimeout(() => {
+                    const s = this.states.get(player.guildId);
+                    if (s?.failsafePending && player.queue.length === 0 && !player.playing && !player.paused) {
+                        console.log(`🔄 No queueEnd received after failure in ${player.guildId} within timeout, retrying failsafe...`);
+                        this.handleQueueEnd(player).catch(() => undefined);
+                    }
+                }, 1500);
             }
         });
     }

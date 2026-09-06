@@ -32,7 +32,8 @@ client.riffy = new Riffy(client, config.lavalink.nodes, {
     },
     defaultSearchPlatform: config.lavalink.defaultSearchPlatform,
     restVersion: 'v4',
-    bypassChecks: { nodeFetchInfo: true }
+    bypassChecks: { nodeFetchInfo: true },
+    migrateOnDisconnect: true
 });
 setRiffy(client.riffy);
 

@@ -6,7 +6,7 @@ import type { Track, PlayerSnapshot } from '../types';
 
 export const embedColor = config.bot.embedColor;
 
-const LOGO = 'https://cdn.discordapp.com/attachments/1126319852531294250/1313984118072606730/logo2.png';
+const LOGO = 'https://media.discordapp.net/attachments/1032319936099536933/1546097190999429137/a3a87e24-538f-4dbf-bfdb-04464f662d8e.png';
 const BANNER = 'https://cdn.discordapp.com/attachments/1126319852531294250/1313984446153818159/bg.png';
 
 export function createNowPlayingEmbed(snapshot: PlayerSnapshot): EmbedBuilder {

@@ -12,6 +12,7 @@ import config from '../config';
 import settingsStore, { type GuildSettings, SettingsStore } from './settings';
 import type { PlayerSnapshot } from '../types';
 import { formatDuration, mentionRequester } from './helpers';
+import { EMOJIS } from './emojis';
 
 export interface CentralTrackInfo extends PlayerSnapshot {
     thumbnail: string | null;
@@ -122,21 +123,21 @@ function createPlayingEmbed(client: Client, info: CentralTrackInfo): EmbedBuilde
 
 function createControlButtons(info: CentralTrackInfo): ActionRowBuilder<MessageActionRowComponentBuilder>[] {
     const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId('music_skip').setEmoji('⏭️').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('music_skip').setEmoji(EMOJIS.skip).setStyle(ButtonStyle.Primary),
         new ButtonBuilder()
             .setCustomId(info.paused ? 'music_resume' : 'music_pause')
-            .setEmoji(info.paused ? '▶️' : '⏸️')
+            .setEmoji(info.paused ? EMOJIS.play : EMOJIS.pause)
             .setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('music_stop').setEmoji('🛑').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('music_queue').setEmoji('📜').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('music_stop').setEmoji(EMOJIS.stop).setStyle(ButtonStyle.Danger),
+        new ButtonBuilder().setCustomId('music_queue').setEmoji(EMOJIS.queue).setStyle(ButtonStyle.Success),
         new ButtonBuilder().setLabel('\u200B\u200BLoop\u200B').setCustomId('music_loop').setEmoji(getLoopEmoji(info.loop)).setStyle(ButtonStyle.Primary)
     );
 
     const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId('music_volume_down').setEmoji('🔉').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('music_volume_up').setEmoji('🔊').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('music_clear').setEmoji('🗑️').setStyle(ButtonStyle.Secondary),
-        new ButtonBuilder().setCustomId('music_shuffle').setEmoji('🔀').setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('music_volume_down').setEmoji(EMOJIS.volumeDown).setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('music_volume_up').setEmoji(EMOJIS.volumeUp).setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('music_clear').setEmoji(EMOJIS.clear).setStyle(ButtonStyle.Secondary),
+        new ButtonBuilder().setCustomId('music_shuffle').setEmoji(EMOJIS.shuffle).setStyle(ButtonStyle.Secondary),
         new ButtonBuilder().setLabel('Support').setStyle(ButtonStyle.Link).setURL(config.bot.supportServer)
     );
 

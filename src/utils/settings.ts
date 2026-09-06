@@ -18,7 +18,7 @@ export function defaultSettings(): GuildSettings {
         prefix: config.bot.prefix,
         djRole: null,
         autoplay: false,
-        defaultVolume: 100,
+        defaultVolume: 50,
         centralEnabled: false,
         centralChannelId: null,
         centralEmbedId: null,

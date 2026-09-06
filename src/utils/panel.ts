@@ -8,6 +8,7 @@ import {
 import type { PlayerSnapshot } from '../types';
 import { createNowPlayingEmbed } from './embedUtils';
 import config from '../config';
+import { EMOJIS } from './emojis';
 
 export const FILTERS = [
     { name: 'bassboost', label: 'Bassboost' },
@@ -30,26 +31,26 @@ export function buildControlRows(snapshot: PlayerSnapshot): ActionRowBuilder<Mes
     const loopLabel = snapshot.loop === 'track' ? '🔂 Track' : snapshot.loop === 'queue' ? '🔁 Queue' : '🔁 Off';
 
     const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId('p:skip').setStyle(ButtonStyle.Secondary).setEmoji('⏭️').setLabel('Skip'),
+        new ButtonBuilder().setCustomId('p:skip').setStyle(ButtonStyle.Secondary).setEmoji(EMOJIS.skip).setLabel('Skip'),
         new ButtonBuilder()
             .setCustomId(paused ? 'p:resume' : 'p:pause')
             .setStyle(paused ? ButtonStyle.Success : ButtonStyle.Secondary)
-            .setEmoji(paused ? '▶️' : '⏸️')
+            .setEmoji(paused ? EMOJIS.play : EMOJIS.pause)
             .setLabel(paused ? 'Resume' : 'Pause'),
-        new ButtonBuilder().setCustomId('p:stop').setStyle(ButtonStyle.Danger).setEmoji('⏹️').setLabel('Stop'),
-        new ButtonBuilder().setCustomId('p:queue').setStyle(ButtonStyle.Primary).setEmoji('📜').setLabel('Queue'),
-        new ButtonBuilder().setCustomId('p:loop').setStyle(ButtonStyle.Secondary).setEmoji('🔁').setLabel(loopLabel)
+        new ButtonBuilder().setCustomId('p:stop').setStyle(ButtonStyle.Danger).setEmoji(EMOJIS.stop).setLabel('Stop'),
+        new ButtonBuilder().setCustomId('p:queue').setStyle(ButtonStyle.Primary).setEmoji(EMOJIS.queue).setLabel('Queue'),
+        new ButtonBuilder().setCustomId('p:loop').setStyle(ButtonStyle.Secondary).setEmoji(EMOJIS.loop).setLabel(loopLabel)
     );
 
     const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-        new ButtonBuilder().setCustomId('p:volume_down').setStyle(ButtonStyle.Secondary).setEmoji('🔉'),
-        new ButtonBuilder().setCustomId('p:volume_up').setStyle(ButtonStyle.Secondary).setEmoji('🔊'),
-        new ButtonBuilder().setCustomId('p:clear').setStyle(ButtonStyle.Danger).setEmoji('🧹').setLabel('Clear'),
-        new ButtonBuilder().setCustomId('p:shuffle').setStyle(ButtonStyle.Primary).setEmoji('🔀').setLabel('Shuffle'),
+        new ButtonBuilder().setCustomId('p:volume_down').setStyle(ButtonStyle.Secondary).setEmoji(EMOJIS.volumeDown),
+        new ButtonBuilder().setCustomId('p:volume_up').setStyle(ButtonStyle.Secondary).setEmoji(EMOJIS.volumeUp),
+        new ButtonBuilder().setCustomId('p:clear').setStyle(ButtonStyle.Danger).setEmoji(EMOJIS.clear).setLabel('Clear'),
+        new ButtonBuilder().setCustomId('p:shuffle').setStyle(ButtonStyle.Primary).setEmoji(EMOJIS.shuffle).setLabel('Shuffle'),
         new ButtonBuilder()
             .setCustomId('p:autoplay')
             .setStyle(snapshot.autoplay ? ButtonStyle.Success : ButtonStyle.Secondary)
-            .setEmoji('🤖')
+            .setEmoji(EMOJIS.autoplay)
             .setLabel(snapshot.autoplay ? 'Autoplay: On' : 'Autoplay: Off')
     );
 

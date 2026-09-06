@@ -32,6 +32,7 @@ export interface PlayerAppState {
     lastQuery?: string;
     lastRequester?: unknown;
     failsafePending?: boolean;
+    recoveries?: number;
 }
 
 export interface SlashCommand {

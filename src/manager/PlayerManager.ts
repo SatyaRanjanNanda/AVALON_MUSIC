@@ -167,6 +167,7 @@ export class PlayerManager {
         state.lastQuery = query;
         state.lastRequester = requester;
         state.failsafePending = false;
+        state.recoveries = 0;
     }
 
     private async resolveSoundCloud(query: string, requester: unknown): Promise<Track | null> {
@@ -192,6 +193,66 @@ export class PlayerManager {
             }
         }
         return null;
+    }
+
+    private async recoverPlayerFailure(player: Player): Promise<void> {
+        const state = this.states.get(player.guildId);
+        if (!state || !state.failsafePending) return;
+
+        const maxRecoveries = 2;
+        const attempt = (state.recoveries || 0) + 1;
+        if (attempt > maxRecoveries) {
+            state.failsafePending = false;
+            console.warn(`⚠️ Giving up on ${player.guildId} after ${maxRecoveries} recovery attempts, leaving VC.`);
+            await this.destroy(player.guildId).catch(() => undefined);
+            return;
+        }
+
+        state.failsafePending = false;
+        state.recoveries = attempt;
+        console.log(`🔄 Recovery attempt #${attempt} in ${player.guildId}...`);
+
+        if (player.playing || player.paused || player.queue.length > 0) {
+            console.log(`🔄 ${player.guildId} already has active playback or queued tracks, skipping recovery.`);
+            return;
+        }
+
+        const current = player.current;
+        const otherNodes = this.connectedNodes().filter((n) => n.name !== player.node?.name);
+
+        if (current && otherNodes.length > 0) {
+            try {
+                await player.moveTo(otherNodes[0]);
+                if (!player.playing && !player.paused) {
+                    await player.play().catch(() => undefined);
+                }
+                console.log(`🔄 Replaying "${current.info?.title || 'track'}" on ${otherNodes[0].name} in ${player.guildId}`);
+                return;
+            } catch (error) {
+                console.warn(`🔄 Replay on ${otherNodes[0].name} failed: ${(error as Error)?.message || error}`);
+            }
+        }
+
+        if (state.lastQuery) {
+            const requester = state.lastRequester ?? null;
+            const scTrack = await this.resolveSoundCloud(state.lastQuery, requester);
+            if (scTrack) {
+                try {
+                    scTrack.info.requester = requester;
+                    player.queue.add(scTrack);
+                    if (!player.playing && !player.paused) {
+                        await player.play();
+                    }
+                    console.log(`🎵 SoundCloud failsafe playing: ${scTrack.info?.title || 'Unknown'} in ${player.guildId}`);
+                    return;
+                } catch (error) {
+                    console.warn('🔄 SoundCloud failsafe play failed:', (error as Error)?.message || error);
+                }
+            }
+        }
+
+        console.warn(`⚠️ Recovery failed for ${player.guildId}, leaving VC.`);
+        await this.destroy(player.guildId).catch(() => undefined);
     }
 
     private pickBestTrack(tracks: Track[], query: string): Track | undefined {
@@ -570,22 +631,9 @@ export class PlayerManager {
             await this.central.updateCentralEmbed(player.guildId, serverSettings, null);
 
             const state = this.states.get(player.guildId);
-            if (state?.failsafePending && state.lastQuery) {
-                state.failsafePending = false;
-                const query = state.lastQuery;
-                const requester = state.lastRequester ?? null;
-                console.log(`🔄 Track failed in ${player.guildId}, searching SoundCloud as failsafe...`);
-                const scTrack = await this.resolveSoundCloud(query, requester);
-                if (scTrack) {
-                    scTrack.info.requester = requester;
-                    player.queue.add(scTrack);
-                    if (!player.playing && !player.paused) {
-                        await player.play().catch(() => undefined);
-                    }
-                    console.log(`🎵 SoundCloud failsafe playing: ${scTrack.info.title || 'Unknown'} in ${player.guildId}`);
-                    return;
-                }
-                console.warn(`⚠️ SoundCloud failsafe found no results for "${query}" in ${player.guildId}`);
+            if (state?.failsafePending) {
+                await this.recoverPlayerFailure(player);
+                return;
             }
 
             if (serverSettings.autoplay) {
@@ -670,7 +718,10 @@ export class PlayerManager {
             try {
                 console.log(`🎵 Started playing: ${track?.info?.title || 'Unknown Track'} in ${player.guildId} (node: ${player.node?.name || 'unknown'})`);
                 const state = this.states.get(player.guildId);
-                if (state) state.failsafePending = false;
+                if (state) {
+                    state.failsafePending = false;
+                    state.recoveries = 0;
+                }
                 const info = await this.getPlayerInfo(player.guildId);
                 if (!info) return;
 
@@ -737,19 +788,16 @@ export class PlayerManager {
             const state = this.states.get(player.guildId);
             if (
                 state &&
-                state.lastQuery &&
                 !state.failsafePending &&
-                track?.info?.sourceName !== 'soundcloud' &&
-                !/^https?:\/\//i.test(state.lastQuery.trim())
+                player.queue.length === 0 &&
+                player.current
             ) {
                 state.failsafePending = true;
-                console.log(`🔄 Marking failed track in ${player.guildId} for SoundCloud failsafe retry...`);
+                console.log(`🔄 Marking ${player.guildId} for playback recovery after failed track (node: ${player.node?.name || 'unknown'})...`);
                 setTimeout(() => {
-                    const s = this.states.get(player.guildId);
-                    if (s?.failsafePending && player.queue.length === 0 && !player.playing && !player.paused) {
-                        console.log(`🔄 No queueEnd received after failure in ${player.guildId} within timeout, retrying failsafe...`);
-                        this.handleQueueEnd(player).catch(() => undefined);
-                    }
+                    if (!state.failsafePending) return;
+                    console.log(`🔄 Recovery timer fired for ${player.guildId} (no queueEnd received)...`);
+                    this.recoverPlayerFailure(player).catch(() => undefined);
                 }, 1500);
             }
         });

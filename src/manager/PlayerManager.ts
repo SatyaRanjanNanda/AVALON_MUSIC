@@ -54,6 +54,12 @@ export class PlayerManager {
         return riffy.players.get(guildId);
     }
 
+    private connectedNodes(): any[] {
+        return Array.from(riffy.nodeMap.values())
+            .filter((n) => n.connected && n.sessionId)
+            .sort((a, b) => (a.penalties || 0) - (b.penalties || 0));
+    }
+
     async createPlayer(
         guildId: string,
         voiceChannelId: string,
@@ -205,30 +211,37 @@ export class PlayerManager {
             }
         }
 
+        const searchTerm = trimmed.replace(
+            /^(ytsearch|ytmsearch|scsearch|spsearch|amsearch|dzsearch|ymsearch):/i,
+            ''
+        );
         const platforms = [...new Set([config.lavalink.defaultSearchPlatform, ...FALLBACK_SEARCH_PLATFORMS])];
         const attempts: string[] = [];
+        const nodes = this.connectedNodes();
 
-        for (const platform of platforms) {
-            try {
-                const result = await withTimeout(
-                    riffy.resolve({ query: `${platform}:${trimmed}`, requester }),
-                    NODE_REQUEST_TIMEOUT_MS
-                );
-                const { loadType, tracks } = result;
-                if (loadType === 'playlist' || ((loadType === 'track' || loadType === 'search') && tracks.length > 0)) {
-                    return result;
+        for (const node of nodes) {
+            for (const platform of platforms) {
+                try {
+                    const result = await withTimeout(
+                        riffy.resolve({ query: searchTerm, source: platform, requester, node }),
+                        NODE_REQUEST_TIMEOUT_MS
+                    );
+                    const { loadType, tracks } = result;
+                    if (loadType === 'playlist' || ((loadType === 'track' || loadType === 'search') && tracks.length > 0)) {
+                        return result;
+                    }
+                    attempts.push(`${platform}(${node.name}: ${loadType || 'empty'})`);
+                    if (loadType === 'error' && result.exception) {
+                        const message =
+                            typeof result.exception === 'string'
+                                ? result.exception
+                                : (result.exception as { message?: string })?.message;
+                        console.error(`Search error on ${platform} via ${node.name} ("${searchTerm}"): ${message || 'unknown'}`);
+                    }
+                } catch (error) {
+                    attempts.push(`${platform}(${node.name}: error)`);
+                    console.error(`Search error on ${platform} via ${node.name}:`, (error as Error)?.message || error);
                 }
-                attempts.push(`${platform}(empty${loadType ? `/${loadType}` : ''})`);
-                if (loadType === 'error' && result.exception) {
-                    const message =
-                        typeof result.exception === 'string'
-                            ? result.exception
-                            : (result.exception as { message?: string })?.message;
-                    console.error(`Search returned error on ${platform} (${trimmed}): ${message || 'unknown'}`);
-                }
-            } catch (error) {
-                attempts.push(`${platform}(error)`);
-                console.error(`Search fallback error on ${platform}:`, (error as Error)?.message || error);
             }
         }
 
@@ -237,10 +250,7 @@ export class PlayerManager {
             tracks: [],
             playlistInfo: { name: '' },
             exception: {
-                message:
-                    attempts.length > 0
-                        ? `Search failed across all platforms (${attempts.join(', ')})`
-                        : 'Search failed: no platforms attempted'
+                message: attempts.length > 0 ? `Search failed across all platforms/nodes (${attempts.join(', ')})` : 'Search failed: no platforms attempted'
             }
         };
     }
@@ -573,20 +583,20 @@ export class PlayerManager {
 
     initializeEvents(): void {
         riffy.on('nodeConnect', (node) => {
-            console.log(`🎵 Lavalink node "${node.name}" connected`);
+            console.log(`🎵 Lavalink node "${node.name}" connected (session: ${node.sessionId || 'n/a'})`);
         });
 
         riffy.on('nodeError', (node, error) => {
             console.error(`🔴 Lavalink node "${node.name}" error: ${error?.message || error}`);
         });
 
-        riffy.on('nodeDisconnect', (node) => {
-            console.log(`🟡 Lavalink node disconnected: ${node.name}`);
+        riffy.on('nodeDisconnect', (node, reason) => {
+            console.log(`🟡 Lavalink node disconnected: ${node.name} (reason: ${reason || 'unknown'})`);
         });
 
         riffy.on('trackStart', async (player, track) => {
             try {
-                console.log(`🎵 Started playing: ${track?.info?.title || 'Unknown Track'} in ${player.guildId}`);
+                console.log(`🎵 Started playing: ${track?.info?.title || 'Unknown Track'} in ${player.guildId} (node: ${player.node?.name || 'unknown'})`);
                 const info = await this.getPlayerInfo(player.guildId);
                 if (!info) return;
 
@@ -612,16 +622,16 @@ export class PlayerManager {
         });
 
         riffy.on('queueEnd', async (player) => {
-            console.log(`🎵 Queue ended in ${player.guildId}`);
+            console.log(`🎵 Queue ended in ${player.guildId} (node: ${player.node?.name || 'unknown'})`);
             await this.handleQueueEnd(player);
         });
 
         riffy.on('playerCreate', (player) => {
-            console.log(`🎵 Player created for guild ${player.guildId}`);
+            console.log(`🎵 Player created for guild ${player.guildId} on node "${player.node?.name || 'unknown'}" (voice: ${player.voiceChannel || 'none'})`);
         });
 
         riffy.on('playerDisconnect', async (player) => {
-            console.log(`🎵 Player disconnected for guild ${player.guildId}`);
+            console.log(`🎵 Player disconnected for guild ${player.guildId} (node: ${player.node?.name || 'unknown'})`);
             const serverSettings = await this.settingsStore.get(player.guildId).catch(() => null);
             if (serverSettings) {
                 await this.central.updateCentralEmbed(player.guildId, serverSettings, null).catch(() => undefined);
@@ -630,7 +640,7 @@ export class PlayerManager {
         });
 
         riffy.on('playerDestroy', (player) => {
-            console.log(`🎵 Player destroyed for guild ${player.guildId}`);
+            console.log(`🎵 Player destroyed for guild ${player.guildId} (node: ${player.node?.name || 'unknown'})`);
             this.states.delete(player.guildId);
         });
 
@@ -641,8 +651,14 @@ export class PlayerManager {
             void oldChannel;
         });
 
-        riffy.on('trackError', (player, track) => {
-            console.error(`🔴 Track error: ${track?.info?.title || 'Unknown'}: ${player.guildId}`);
+        riffy.on('trackError', (player, track, payload) => {
+            const reason =
+                payload?.exception &&
+                (typeof payload.exception === 'object'
+                    ? payload.exception.message || JSON.stringify(payload.exception)
+                    : payload.exception) || 'unknown';
+            const code = payload?.exception?.severity ? ` [${payload.exception.severity}]` : '';
+            console.error(`🔴 Track error in ${player.guildId} (node: ${player.node?.name || 'unknown'}): ${track?.info?.title || 'Unknown'}${code} -> ${reason}`);
         });
     }
 }

@@ -1,19 +1,5 @@
 [
   {
-    "name": "Millohost",
-    "host": "lava-v4.millohost.my.id",
-    "port": 443,
-    "password": "https://discord.gg/mjS5J2K3ep",
-    "secure": true
-  },
-  {
-    "name": "Albin Hakanson",
-    "host": "lavalink1.albinhakanson.se",
-    "port": 1141,
-    "password": "albinhakanson.se",
-    "secure": false
-  },
-  {
     "name": "Serenetia",
     "host": "lavalinkv4.serenetia.com",
     "port": 443,
@@ -25,6 +11,13 @@
     "host": "lavalink.clxud.dev",
     "port": 2333,
     "password": "youshallnotpass",
+    "secure": false
+  },
+  {
+    "name": "Strix",
+    "host": "de-01.strixnodes.com",
+    "port": 2010,
+    "password": "glace",
     "secure": false
   }
 ]

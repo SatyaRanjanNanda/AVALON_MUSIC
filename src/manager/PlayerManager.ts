@@ -212,25 +212,9 @@ export class PlayerManager {
         state.recoveries = attempt;
         console.log(`🔄 Recovery attempt #${attempt} in ${player.guildId}...`);
 
-        if (player.playing || player.paused || player.queue.length > 0) {
-            console.log(`🔄 ${player.guildId} already has active playback or queued tracks, skipping recovery.`);
+        if (player.queue.length > 0) {
+            console.log(`🔄 ${player.guildId} already has queued tracks, skipping recovery.`);
             return;
-        }
-
-        const current = player.current;
-        const otherNodes = this.connectedNodes().filter((n) => n.name !== player.node?.name);
-
-        if (current && otherNodes.length > 0) {
-            try {
-                await player.moveTo(otherNodes[0]);
-                if (!player.playing && !player.paused) {
-                    await player.play().catch(() => undefined);
-                }
-                console.log(`🔄 Replaying "${current.info?.title || 'track'}" on ${otherNodes[0].name} in ${player.guildId}`);
-                return;
-            } catch (error) {
-                console.warn(`🔄 Replay on ${otherNodes[0].name} failed: ${(error as Error)?.message || error}`);
-            }
         }
 
         if (state.lastQuery) {
@@ -241,7 +225,7 @@ export class PlayerManager {
                     scTrack.info.requester = requester;
                     player.queue.add(scTrack);
                     if (!player.playing && !player.paused) {
-                        await player.play();
+                        await player.play().catch(() => undefined);
                     }
                     console.log(`🎵 SoundCloud failsafe playing: ${scTrack.info?.title || 'Unknown'} in ${player.guildId}`);
                     return;

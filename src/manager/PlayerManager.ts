@@ -13,11 +13,25 @@ export type PlayResult =
     | { type: 'error'; message: string };
 
 const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'spsearch', 'amsearch'];
+const NODE_REQUEST_TIMEOUT_MS = 15000;
 
 interface FallbackResolveResult {
     loadType: string | null;
     tracks: Track[];
     playlistInfo: { name?: string | null } | null;
+    exception?: any;
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<T>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Lavalink request timed out after ${ms}ms`)), ms);
+    });
+    try {
+        return await Promise.race([promise, timeout]);
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
 }
 
 export class PlayerManager {
@@ -61,7 +75,23 @@ export class PlayerManager {
                 this.states.set(guildId, { nowPlayingMessageId: null, textChannelId, lastFilter: null });
             }
 
-            player = riffy.createConnection({
+            let bestNode = Array.from(riffy.nodeMap.values())
+                .filter((n) => n.connected)
+                .sort((a, b) => (a.penalties || 0) - (b.penalties || 0))[0];
+
+            if (!bestNode) {
+                // Fallback to Riffy's built-in leastUsedNodes if manual sort fails
+                const leastUsed = (riffy as any).leastUsedNodes;
+                if (leastUsed && leastUsed.length > 0) {
+                    bestNode = riffy.nodeMap.get(leastUsed[0].name) as any;
+                }
+            }
+
+            if (!bestNode) {
+                throw new Error("No connected Lavalink nodes are available!");
+            }
+
+            player = riffy.createPlayer(bestNode as any, {
                 guildId,
                 voiceChannel: voiceChannelId,
                 textChannel: textChannelId,
@@ -81,7 +111,7 @@ export class PlayerManager {
             if (!player) return { type: 'error', message: 'Player not available' };
 
             const resolve = await this.resolveWithFallback(query, requester);
-            const { loadType, tracks, playlistInfo } = resolve;
+            const { loadType, tracks, playlistInfo, exception } = resolve;
 
             if (loadType === 'playlist') {
                 for (const track of tracks) {
@@ -99,7 +129,7 @@ export class PlayerManager {
             if (loadType === 'search' || loadType === 'track') {
                 const track = loadType === 'search' ? this.pickBestTrack(tracks, query) : tracks[0];
                 if (!track || !track.info) {
-                    return { type: 'error', message: 'No results found' };
+                    return { type: 'error', message: 'No results found for that query' };
                 }
                 track.info.requester = requester;
                 player.queue.add(track);
@@ -109,7 +139,13 @@ export class PlayerManager {
                 return { type: 'track', track };
             }
 
-            return { type: 'error', message: 'No results found' };
+            const reason =
+                exception &&
+                typeof exception === 'object' &&
+                exception.message
+                    ? exception.message
+                    : 'No results found for that query. Try a direct YouTube/SoundCloud URL.';
+            return { type: 'error', message: reason };
         } catch (error) {
             console.error('Play song error:', (error as Error)?.message || error);
             return { type: 'error', message: 'Failed to play song' };
@@ -161,29 +197,52 @@ export class PlayerManager {
     private async resolveWithFallback(query: string, requester: unknown): Promise<FallbackResolveResult> {
         const trimmed = query.trim();
         if (/^https?:\/\//i.test(trimmed)) {
-            return riffy.resolve({ query: trimmed, requester }).catch(() => ({
-                loadType: 'empty',
-                tracks: [],
-                playlistInfo: { name: '' }
-            }));
+            try {
+                return await withTimeout(riffy.resolve({ query: trimmed, requester }), NODE_REQUEST_TIMEOUT_MS);
+            } catch (error) {
+                console.error('Direct URL resolve error:', (error as Error)?.message || error);
+                return { loadType: 'empty', tracks: [], playlistInfo: { name: '' } };
+            }
         }
 
         const platforms = [...new Set([config.lavalink.defaultSearchPlatform, ...FALLBACK_SEARCH_PLATFORMS])];
-        let last: FallbackResolveResult = { loadType: 'empty', tracks: [], playlistInfo: { name: '' } };
+        const attempts: string[] = [];
 
         for (const platform of platforms) {
             try {
-                const result = await riffy.resolve({ query: `${platform}:${trimmed}`, requester });
-                last = result;
+                const result = await withTimeout(
+                    riffy.resolve({ query: `${platform}:${trimmed}`, requester }),
+                    NODE_REQUEST_TIMEOUT_MS
+                );
                 const { loadType, tracks } = result;
                 if (loadType === 'playlist' || ((loadType === 'track' || loadType === 'search') && tracks.length > 0)) {
                     return result;
                 }
+                attempts.push(`${platform}(empty${loadType ? `/${loadType}` : ''})`);
+                if (loadType === 'error' && result.exception) {
+                    const message =
+                        typeof result.exception === 'string'
+                            ? result.exception
+                            : (result.exception as { message?: string })?.message;
+                    console.error(`Search returned error on ${platform} (${trimmed}): ${message || 'unknown'}`);
+                }
             } catch (error) {
+                attempts.push(`${platform}(error)`);
                 console.error(`Search fallback error on ${platform}:`, (error as Error)?.message || error);
             }
         }
-        return last;
+
+        return {
+            loadType: 'empty',
+            tracks: [],
+            playlistInfo: { name: '' },
+            exception: {
+                message:
+                    attempts.length > 0
+                        ? `Search failed across all platforms (${attempts.join(', ')})`
+                        : 'Search failed: no platforms attempted'
+            }
+        };
     }
 
     async resolve(query: string): Promise<ResolvedTracks> {

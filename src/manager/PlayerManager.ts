@@ -116,8 +116,6 @@ export class PlayerManager {
         try {
             if (!player) return { type: 'error', message: 'Player not available' };
 
-            this.recordLastQuery(player, query, requester);
-
             const resolve = await this.resolveWithFallback(query, requester);
             const { loadType, tracks, playlistInfo, exception } = resolve;
 
@@ -160,15 +158,7 @@ export class PlayerManager {
         }
     }
 
-    private recordLastQuery(player: Player, query: string, requester: unknown): void {
-        if (/^https?:\/\//i.test(query.trim())) return;
-        const state = this.states.get(player.guildId);
-        if (!state) return;
-        state.lastQuery = query;
-        state.lastRequester = requester;
-        state.failsafePending = false;
-        state.recoveries = 0;
-    }
+    // (Removed recordLastQuery)
 
     private async resolveSoundCloud(query: string, requester: unknown): Promise<Track | null> {
         const searchTerm = query
@@ -195,45 +185,30 @@ export class PlayerManager {
         return null;
     }
 
-    private async recoverPlayerFailure(player: Player): Promise<void> {
-        const state = this.states.get(player.guildId);
-        if (!state || !state.failsafePending) return;
+    private async recoverFailedTrack(player: Player, failedTrack: Track): Promise<void> {
+        const query = `${failedTrack.info.title} ${failedTrack.info.author}`;
+        console.log(`🔄 Attempting to recover failed track: ${query}`);
 
-        const maxRecoveries = 2;
-        const attempt = (state.recoveries || 0) + 1;
-        if (attempt > maxRecoveries) {
-            state.failsafePending = false;
-            console.warn(`⚠️ Giving up on ${player.guildId} after ${maxRecoveries} recovery attempts, keeping bot in VC.`);
-            return;
-        }
-
-        state.failsafePending = false;
-        state.recoveries = attempt;
-        console.log(`🔄 Recovery attempt #${attempt} in ${player.guildId}...`);
-
-        if (player.queue.length > 0) {
-            console.log(`🔄 ${player.guildId} already has queued tracks, skipping recovery.`);
-            return;
-        }
-
-        if (state.lastQuery) {
-            const requester = state.lastRequester ?? null;
-            const scTrack = await this.resolveSoundCloud(state.lastQuery, requester);
-            if (scTrack) {
-                try {
-                    scTrack.info.requester = requester;
-                    player.queue.add(scTrack);
-                    if (!player.playing && !player.paused) {
-                        await player.play().catch(() => undefined);
-                    }
-                    console.log(`🎵 SoundCloud failsafe playing: ${scTrack.info?.title || 'Unknown'} in ${player.guildId}`);
-                    return;
-                } catch (error) {
-                    console.warn('🔄 SoundCloud failsafe play failed:', (error as Error)?.message || error);
+        const scTrack = await this.resolveSoundCloud(query, failedTrack.info.requester);
+        if (scTrack) {
+            console.log(`✅ Recovery successful, found SoundCloud fallback for ${player.guildId}.`);
+            
+            if (player.current && player.current.info.title !== failedTrack.info.title) {
+                // Riffy already auto-skipped to the next track.
+                // Put it back in the queue so it plays after our fallback.
+                player.queue.unshift(player.current);
+                player.queue.unshift(scTrack);
+                try { player.stop(); } catch { /* noop */ }
+            } else {
+                // Riffy is stopped or still stuck on the failed track.
+                player.queue.unshift(scTrack);
+                try { player.stop(); } catch { /* noop */ }
+                if (!player.playing && !player.paused) {
+                    await player.play().catch(() => undefined);
                 }
             }
+            return;
         }
-
         console.warn(`⚠️ Recovery failed for ${player.guildId}, keeping bot in VC.`);
     }
 
@@ -608,10 +583,6 @@ export class PlayerManager {
             await this.central.updateCentralEmbed(player.guildId, serverSettings, null);
 
             const state = this.states.get(player.guildId);
-            if (state?.failsafePending) {
-                await this.recoverPlayerFailure(player);
-                return;
-            }
 
             if (serverSettings.autoplay) {
                 player.isAutoplay = true;
@@ -672,10 +643,6 @@ export class PlayerManager {
 
         riffy.on('playerMigrationFailed', async (player, error) => {
             console.error(`🔴 Player ${player.guildId} migration failed: ${error?.message || error}`);
-            const state = this.states.get(player.guildId);
-            if (state?.lastQuery && !state.failsafePending && player.current?.info?.sourceName !== 'soundcloud') {
-                state.failsafePending = true;
-            }
             try {
                 await this.handleQueueEnd(player);
             } catch (err) {
@@ -686,11 +653,6 @@ export class PlayerManager {
         riffy.on('trackStart', async (player, track) => {
             try {
                 console.log(`🎵 Started playing: ${track?.info?.title || 'Unknown Track'} in ${player.guildId} (node: ${player.node?.name || 'unknown'})`);
-                const state = this.states.get(player.guildId);
-                if (state) {
-                    state.failsafePending = false;
-                    state.recoveries = 0;
-                }
                 const info = await this.getPlayerInfo(player.guildId);
                 if (!info) return;
 
@@ -754,23 +716,11 @@ export class PlayerManager {
             const code = payload?.exception?.severity ? ` [${payload.exception.severity}]` : '';
             console.error(`🔴 Track error in ${player.guildId} (node: ${player.node?.name || 'unknown'}): ${track?.info?.title || 'Unknown'}${code} -> ${reason}`);
 
-            const state = this.states.get(player.guildId);
-            if (
-                state &&
-                !state.failsafePending &&
-                player.queue.length === 0 &&
-                player.current
-            ) {
-                state.failsafePending = true;
-                console.log(`🔄 Marking ${player.guildId} for playback recovery after failed track (node: ${player.node?.name || 'unknown'})...`);
-                setTimeout(() => {
-                    if (!state.failsafePending) return;
-                    console.log(`🔄 Recovery timer fired for ${player.guildId} (no queueEnd received)...`);
-                    this.recoverPlayerFailure(player).catch(() => undefined);
-                }, 1500);
+            if (track) {
+                this.recoverFailedTrack(player, track).catch((err) => {
+                    console.error('Recovery error:', (err as Error)?.message || err);
+                });
             }
-
-            // Forcefully stop the player so it skips to the next track or ends the queue
             try { player.stop(); } catch { /* noop */ }
         });
     }

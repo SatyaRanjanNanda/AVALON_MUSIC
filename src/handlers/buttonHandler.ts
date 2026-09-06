@@ -11,11 +11,14 @@ async function getPlayer(guildId: string) {
     }
 }
 
-async function replyOn(interaction: ButtonInteraction, text: string[] | string, error = false) {
+async function replyOn(interaction: ButtonInteraction | StringSelectMenuInteraction, text: string[] | string, error = false) {
     const lines = Array.isArray(text) ? text : [text];
     const embed = error ? errorEmbed(lines.join('\n')) : successEmbed(lines.join('\n'));
-    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => undefined);
-    setTimeout(() => interaction.deleteReply().catch(() => undefined), 3000);
+    if (interaction.deferred || interaction.replied) {
+        await interaction.followUp({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => undefined);
+    } else {
+        await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral }).catch(() => undefined);
+    }
 }
 
 async function refreshState(guildId: string) {

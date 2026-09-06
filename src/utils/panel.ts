@@ -32,7 +32,7 @@ export function buildControlRows(snapshot: PlayerSnapshot): ActionRowBuilder<Mes
     const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
         new ButtonBuilder().setCustomId('p:skip').setStyle(ButtonStyle.Secondary).setEmoji('⏭️').setLabel('Skip'),
         new ButtonBuilder()
-            .setCustomId('p:pause')
+            .setCustomId(paused ? 'p:resume' : 'p:pause')
             .setStyle(paused ? ButtonStyle.Success : ButtonStyle.Secondary)
             .setEmoji(paused ? '▶️' : '⏸️')
             .setLabel(paused ? 'Resume' : 'Pause'),

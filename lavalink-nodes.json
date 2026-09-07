@@ -1,12 +1,5 @@
 [
   {
-    "name": "Serenetia",
-    "host": "lavalinkv4.serenetia.com",
-    "port": 443,
-    "password": "https://seretia.link/discord",
-    "secure": true
-  },
-  {
     "name": "Clxud",
     "host": "lavalink.clxud.dev",
     "port": 2333,
@@ -14,10 +7,10 @@
     "secure": false
   },
   {
-    "name": "Strix",
-    "host": "de-01.strixnodes.com",
-    "port": 2010,
-    "password": "glace",
+    "name": "Trinium",
+    "host": "lavalink.triniumhost.com",
+    "port": 4333,
+    "password": "free",
     "secure": false
   }
 ]

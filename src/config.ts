@@ -80,7 +80,7 @@ export const config = {
     },
     lavalink: {
         nodes: loadLavalinkNodes(),
-        defaultSearchPlatform: (process.env.DEFAULT_SEARCH_PLATFORM as 'ytmsearch' | 'ytsearch' | 'scsearch' | 'spsearch') || 'scsearch'
+        defaultSearchPlatform: (process.env.DEFAULT_SEARCH_PLATFORM as 'ytmsearch' | 'ytsearch' | 'scsearch' | 'spsearch') || 'ytsearch'
     },
     keepAlive: {
         healthUrl: process.env.HEALTH_URL || '',

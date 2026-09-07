@@ -12,7 +12,7 @@ export type PlayResult =
     | { type: 'track'; track: Track }
     | { type: 'error'; message: string };
 
-const FALLBACK_SEARCH_PLATFORMS = ['scsearch', 'ytsearch', 'spsearch', 'amsearch'];
+const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'spsearch', 'amsearch'];
 const NODE_REQUEST_TIMEOUT_MS = 15000;
 
 interface FallbackResolveResult {
@@ -240,19 +240,25 @@ export class PlayerManager {
     private pickBestTrack(tracks: Track[], query: string): Track | undefined {
         if (tracks.length <= 1) return tracks[0];
 
-        const q = query.toLowerCase();
+        const q = query.toLowerCase().replace(/^(ytsearch|ytmsearch|scsearch|spsearch|amsearch|dzsearch|ymsearch):/, '');
         const tagWords = [
             'remix', 'instrumental', 'karaoke', 'cover', 'slowed', 'sped up', 'reverb', 
             'extended', 'nightcore', 'acoustic', 'mashup', 'megamix', '8d audio', 
             'bass boost', 'bassboosted', 'relaxing', 'live', 'tiktok', 'lofi', 'type beat', 
-            'parody', 'reaction', '8d', 'bassed', 'clean'
+            'parody', 'reaction', '8d', 'bassed', 'clean', 'loop', 'sample', 'edit', 'speed up'
         ];
         const tagRegex = (word: string): string => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const requestedTags = tagWords.filter((tag) => q.includes(tag));
         const penalizedTags = tagWords.filter((tag) => !requestedTags.includes(tag));
-        
+
         const badTags = new RegExp(`\\b(${penalizedTags.map(tagRegex).join('|')})\\b`, 'i');
-        const goodTags = /\b(official|official audio|official video|audio|original|lyrics|lyric video|music video)\b/i;
+        const hardBadTags = /\b(instrumental|karaoke|acoustic|cover version|parody|beat only)\b/i;
+        const goodTags = /\b(official|official audio|official video|topic|original|audio|music video)\b/i;
+
+        const coreWords = q
+            .split(/\s+/)
+            .map((w) => w.replace(/[^a-z0-9]/g, ''))
+            .filter((w) => w.length >= 3 && !penalizedTags.some((t) => t.replace(/\s/g, '') === w));
 
         let best: Track | undefined = tracks[0];
         let bestScore = -Infinity;
@@ -262,21 +268,30 @@ export class PlayerManager {
             const title = (track?.info?.title || '').toLowerCase();
             const author = (track?.info?.author || '').toLowerCase();
 
-            let score = 1000 - (i * 12);
-            if (penalizedTags.length > 0 && badTags.test(title)) score -= 800;
+            let score = 500 - (i * 8);
+            if (penalizedTags.length > 0 && badTags.test(title)) score -= 500;
+            if (hardBadTags.test(title) || hardBadTags.test(author)) score -= 400;
             if (requestedTags.length > 0) {
                 const titleTags = requestedTags.filter((tag) => title.includes(tag)).length;
                 score += titleTags * 200;
             }
-            if (goodTags.test(title)) score += 150;
-            if (author.includes('vevo') || author.includes('official') || title.includes(author)) score += 100;
-            
-            if (author && q.length > 3 && (q.includes(author) || author.includes(q))) score += 80;
 
-            const words = q.split(/\s+/).filter((w) => w.length > 2);
-            const matched = words.filter((w) => title.includes(w)).length;
-            score += matched * 30;
-            if (title === q) score += 200;
+            if (goodTags.test(title) || goodTags.test(author)) score += 200;
+            if (author.includes('vevo') || author.includes('topic')) score += 260;
+
+            const authorWords = author.split(/\s+/).filter((w) => w.length > 2);
+            const authorMatches = coreWords.filter((w) => authorWords.some((aw) => aw.includes(w) || w.includes(aw))).length;
+            if (authorMatches >= 2) score += 150;
+            else if (authorMatches === 1) score += 60;
+
+            const titleWords = title.split(/\s+/);
+            const matched = coreWords.filter((w) => titleWords.some((tw) => tw.includes(w) || w.includes(tw))).length;
+            score += matched * 90;
+            const missing = coreWords.length - matched;
+            score -= missing * 160;
+
+            if (title === q) score += 300;
+            else if (title.replace(/[^a-z0-9]/g, '').includes(q.replace(/[^a-z0-9]/g, ''))) score += 180;
 
             if (score > bestScore) {
                 bestScore = score;
@@ -284,7 +299,7 @@ export class PlayerManager {
             }
         }
 
-        return best;
+        return best !== undefined && bestScore > -400 ? best : tracks[0];
     }
 
     private async resolveWithFallback(query: string, requester: unknown): Promise<FallbackResolveResult> {

@@ -27,7 +27,7 @@ export function createNowPlayingEmbed(snapshot: PlayerSnapshot): EmbedBuilder {
             { name: '🤖 Autoplay', value: snapshot.autoplay ? '✅ On' : '❌ Off', inline: true },
             { name: '🎧 Requested by', value: requester, inline: true }
         )
-        // .setThumbnail(snapshot.thumbnail || BANNER)
+        .setThumbnail(snapshot.thumbnail || LOGO)
         .setFooter({ text: `Library · Discord Music Bot`, iconURL: client.user?.displayAvatarURL({ extension: 'png', size: 128 }) });
 }
 
@@ -42,7 +42,7 @@ export function createQueueEmbed(snapshot: Pick<PlayerSnapshot, 'loop' | 'volume
             { name: '🎚️ Volume', value: `${snapshot.volume}%`, inline: true },
             { name: '🤖 Autoplay', value: snapshot.autoplay ? 'On' : 'Off', inline: true }
         )
-        // .setThumbnail(snapshot.thumbnail || BANNER);
+        .setThumbnail(snapshot.thumbnail || LOGO);
 }
 
 export async function queueEmbed(guildId: string, page = 1): Promise<EmbedBuilder> {
@@ -70,8 +70,9 @@ export async function queueEmbed(guildId: string, page = 1): Promise<EmbedBuilde
         })
         .setFooter({ text: `Page ${page}/${maxPages}` });
 
-    if (player.current.info?.identifier && player.current.info.sourceName === 'youtube') {
-        embed.setThumbnail(`https://img.youtube.com/vi/${player.current.info.identifier}/maxresdefault.jpg`);
+    const currentThumb = player.current.info?.uri ? getTrackThumbnail(player.current) : null;
+    if (currentThumb) {
+        embed.setThumbnail(currentThumb);
     }
 
     return embed;

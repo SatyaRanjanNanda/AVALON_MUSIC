@@ -16,6 +16,7 @@ const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'dzsearch', 'amsearch
 const NODE_REQUEST_TIMEOUT_MS = 12000;
 const MAX_RECOVERY_ATTEMPTS = 3;
 const RECOVERY_RESET_MS = 60_000;
+const NOW_PLAYING_REFRESH_MS = 10_000;
 
 interface FallbackResolveResult {
     loadType: string | null;
@@ -47,6 +48,37 @@ export class PlayerManager {
         this.client = client;
         this.central = central;
         this.settingsStore = settingsStore;
+        this.startLiveTicker();
+    }
+
+    private startLiveTicker(): void {
+        setInterval(() => {
+            this.tickNowPlayingPanels().catch(() => undefined);
+        }, NOW_PLAYING_REFRESH_MS);
+    }
+
+    private async tickNowPlayingPanels(): Promise<void> {
+        const players = Array.from(riffy.players.values());
+        for (const player of players) {
+            if (!player || !player.current || !player.playing) continue;
+            try {
+                await this.updateLivePanels(player.guildId);
+            } catch {
+                /* keep going */
+            }
+        }
+    }
+
+    private async updateLivePanels(guildId: string): Promise<void> {
+        const info = await this.getPlayerInfo(guildId);
+        if (!info) return;
+        const serverSettings = await this.settingsStore.get(guildId).catch(() => null);
+        if (serverSettings) {
+            await this.central.updateCentralEmbed(guildId, serverSettings, info).catch(() => undefined);
+        }
+        if (config.bot.showNowPlaying) {
+            await this.sendNowPlaying(guildId, info);
+        }
     }
 
     getState(guildId: string): PlayerAppState | null | undefined {
@@ -543,7 +575,16 @@ export class PlayerManager {
         const player = this.getPlayer(guildId);
         if (!player) return false;
 
+        const lastTrack = player.queue.length === 0 && !!player.current;
+        const hadCurrent = lastTrack;
+        const serverSettings = await this.settingsStore.get(guildId).catch(() => null);
+        const autoplayWillStart = lastTrack && serverSettings?.autoplay === true;
+
         player.stop();
+
+        if (hadCurrent && lastTrack && !autoplayWillStart && config.bot.showNowPlaying) {
+            await this.sendQueueEndedPanel(guildId, '⏭️ Skipped the last track.');
+        }
         return true;
     }
 

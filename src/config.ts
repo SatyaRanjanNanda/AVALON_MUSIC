@@ -68,6 +68,7 @@ export const config = {
     bot: {
         prefix: process.env.BOT_PREFIX || '!',
         embedColor: 0x9966ff,
+        equalizerGif: process.env.EQUALIZER_GIF_URL || 'https://media.tenor.com/baTfy6sflvAAAAAM/equalizer-music.gif',
         supportServer: 'https://discord.gg/xQF9f9yUEM',
         ownerIds: (process.env.OWNER_IDS || '1004206704994566164').split(',')
             .map((id) => id.trim())

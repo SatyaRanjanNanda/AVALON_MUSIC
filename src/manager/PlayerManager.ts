@@ -14,6 +14,8 @@ export type PlayResult =
 
 const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'spsearch', 'amsearch'];
 const NODE_REQUEST_TIMEOUT_MS = 15000;
+const MAX_RECOVERY_ATTEMPTS = 3;
+const RECOVERY_RESET_MS = 60_000;
 
 interface FallbackResolveResult {
     loadType: string | null;
@@ -39,6 +41,7 @@ export class PlayerManager {
     private central: CentralEmbedHandler;
     private settingsStore: SettingsStore;
     private states = new Map<string, PlayerAppState>();
+    private recoveryState = new Map<string, { count: number; resetAt: number }>();
 
     constructor(client: Client, central: CentralEmbedHandler, settingsStore: SettingsStore) {
         this.client = client;
@@ -197,6 +200,25 @@ export class PlayerManager {
 
     // (Removed recordLastQuery)
 
+    private canAttemptRecovery(guildId: string): boolean {
+        const now = Date.now();
+        const state = this.recoveryState.get(guildId);
+        if (!state || now > state.resetAt) {
+            this.recoveryState.set(guildId, { count: 1, resetAt: now + RECOVERY_RESET_MS });
+            return true;
+        }
+        if (state.count >= MAX_RECOVERY_ATTEMPTS) {
+            console.warn(`🛑 Max recovery attempts (${MAX_RECOVERY_ATTEMPTS}) reached for guild ${guildId}, giving up on track recovery.`);
+            return false;
+        }
+        state.count += 1;
+        return true;
+    }
+
+    private clearRecoveryState(guildId: string): void {
+        this.recoveryState.delete(guildId);
+    }
+
     private async resolveAlternativeTrack(query: string, failedTrack: Track): Promise<Track | null> {
         try {
             const result = await this.resolveWithFallback(query, failedTrack.info.requester);
@@ -216,6 +238,8 @@ export class PlayerManager {
     }
 
     private async recoverFailedTrack(player: Player, failedTrack: Track): Promise<void> {
+        if (!this.canAttemptRecovery(player.guildId)) return;
+
         const query = `${failedTrack.info.title} ${failedTrack.info.author}`;
         console.log(`🔄 Attempting to recover failed track: ${query}`);
 
@@ -648,6 +672,7 @@ export class PlayerManager {
     }
 
     async destroy(guildId: string): Promise<void> {
+        this.recoveryState.delete(guildId);
         const player = this.getPlayer(guildId);
         const state = this.states.get(guildId);
 
@@ -703,6 +728,7 @@ export class PlayerManager {
 
         riffy.on('trackStart', async (player, track) => {
             try {
+                this.clearRecoveryState(player.guildId);
                 console.log(`🎵 Started playing: ${track?.info?.title || 'Unknown Track'} in ${player.guildId} (node: ${player.node?.name || 'unknown'})`);
                 const info = await this.getPlayerInfo(player.guildId);
                 if (!info) return;

@@ -1,7 +1,7 @@
 import { EmbedBuilder } from 'discord.js';
 import config from '../config';
 import { riffy, client } from '../core';
-import { formatDuration, getProgressBar, getTrackThumbnail, mentionRequester } from './helpers';
+import { formatDuration, getTrackThumbnail, mentionRequester } from './helpers';
 import type { Track, PlayerSnapshot } from '../types';
 
 export const embedColor = config.bot.embedColor;
@@ -10,8 +10,7 @@ const LOGO = 'https://cdn.dribbble.com/userupload/21568836/file/original-45df2d9
 // const BANNER = 'https://cdn.discordapp.com/attachments/1126319852531294250/1313984446153818159/bg.png';
 
 export function createNowPlayingEmbed(snapshot: PlayerSnapshot): EmbedBuilder {
-    const progress = getProgressBar(snapshot.position, snapshot.duration);
-    const time = `\`${formatDuration(snapshot.position)} / ${formatDuration(snapshot.duration)}\`\n${progress}`;
+    const time = `\`${formatDuration(snapshot.position)} / ${formatDuration(snapshot.duration)}\``;
     const requester = mentionRequester(snapshot.requester);
 
     return new EmbedBuilder()
@@ -19,6 +18,7 @@ export function createNowPlayingEmbed(snapshot: PlayerSnapshot): EmbedBuilder {
         .setAuthor({ name: '🎶 Now Playing', iconURL: LOGO })
         .setTitle(snapshot.title)
         .setDescription(time)
+        .setImage(config.bot.equalizerGif)
         .addFields(
             { name: '👤 Artist', value: snapshot.author, inline: true },
             { name: '⏱️ Duration', value: formatDuration(snapshot.duration), inline: true },

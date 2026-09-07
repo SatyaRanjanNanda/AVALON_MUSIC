@@ -105,12 +105,49 @@ export class PlayerManager {
                 defaultVolume: serverSettings.defaultVolume
             });
 
+            this.hardenPlayer(player);
+
             return player;
         } catch (error) {
             console.error('Player creation error:', (error as Error)?.message || error);
             return null;
         }
     }
+
+    private hardenPlayer(player: Player): void {
+        const playerAny = player as any;
+
+        if (!playerAny.__avalonHardened) {
+            playerAny.__avalonHardened = true;
+
+            const originalPlay = player.play.bind(player);
+            let playingPromise: Promise<unknown> | null = null;
+
+            player.play = async () => {
+                if (!player.queue.length) {
+                    player.playing = false;
+                    console.warn(`🎵 Halt: play() called for guild ${player.guildId} with empty queue.`);
+                    return player;
+                }
+                if (playingPromise) return playingPromise as any;
+                playingPromise = originalPlay().finally(() => {
+                    playingPromise = null;
+                });
+                return playingPromise;
+            };
+
+            const originalStop = player.stop.bind(player);
+            let stopping = false;
+            player.stop = () => {
+                if (stopping) return player;
+                stopping = true;
+                const result = originalStop();
+                setTimeout(() => { stopping = false; }, 50);
+                return result;
+            };
+        }
+    }
+
 
     async playSong(player: Player, query: string, requester: unknown): Promise<PlayResult> {
         try {
@@ -187,15 +224,11 @@ export class PlayerManager {
             console.log(`✅ Recovery successful, found alternative fallback for ${player.guildId}.`);
             
             if (player.current && player.current.info.title !== failedTrack.info.title) {
-                // Riffy already auto-skipped to the next track.
                 player.queue.unshift(player.current);
                 player.queue.unshift(fallbackTrack);
-                try { player.stop(); } catch { /* noop */ }
             } else {
-                // Riffy is stopped or still stuck on the failed track.
                 player.queue.unshift(fallbackTrack);
-                try { player.stop(); } catch { /* noop */ }
-                if (!player.playing && !player.paused) {
+                if (!player.playing && !player.paused && player.queue.length > 0) {
                     await player.play().catch(() => undefined);
                 }
             }
@@ -490,7 +523,9 @@ export class PlayerManager {
         player.queue.splice(index - 1, 1);
         player.queue.unshift(target);
         player.stop();
-        await player.play().catch(() => undefined);
+        if (player.queue.length > 0) {
+            await player.play().catch(() => undefined);
+        }
         await this.refreshPlayer(guildId);
         return true;
     }
@@ -585,13 +620,11 @@ export class PlayerManager {
             const serverSettings = await this.settingsStore.get(player.guildId);
             await this.central.updateCentralEmbed(player.guildId, serverSettings, null);
 
-            const state = this.states.get(player.guildId);
-
             if (serverSettings.autoplay) {
                 player.isAutoplay = true;
             }
 
-            if (player.isAutoplay) {
+            if (player.isAutoplay && player.connected) {
                 await player.autoplay(player).catch(() => undefined);
             }
         } catch (error) {
@@ -724,7 +757,6 @@ export class PlayerManager {
                     console.error('Recovery error:', (err as Error)?.message || err);
                 });
             }
-            try { player.stop(); } catch { /* noop */ }
         });
     }
 }

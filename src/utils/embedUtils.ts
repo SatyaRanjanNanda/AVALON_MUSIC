@@ -6,8 +6,8 @@ import type { Track, PlayerSnapshot } from '../types';
 
 export const embedColor = config.bot.embedColor;
 
-const LOGO = 'https://media.discordapp.net/attachments/1032319936099536933/1546097190999429137/a3a87e24-538f-4dbf-bfdb-04464f662d8e.png';
-const BANNER = 'https://cdn.discordapp.com/attachments/1126319852531294250/1313984446153818159/bg.png';
+const LOGO = 'https://cdn.dribbble.com/userupload/21568836/file/original-45df2d9f2c473228a5973292b0849286.gif';
+// const BANNER = 'https://cdn.discordapp.com/attachments/1126319852531294250/1313984446153818159/bg.png';
 
 export function createNowPlayingEmbed(snapshot: PlayerSnapshot): EmbedBuilder {
     const progress = getProgressBar(snapshot.position, snapshot.duration);
@@ -27,7 +27,7 @@ export function createNowPlayingEmbed(snapshot: PlayerSnapshot): EmbedBuilder {
             { name: '🤖 Autoplay', value: snapshot.autoplay ? '✅ On' : '❌ Off', inline: true },
             { name: '🎧 Requested by', value: requester, inline: true }
         )
-        .setThumbnail(snapshot.thumbnail || BANNER)
+        // .setThumbnail(snapshot.thumbnail || BANNER)
         .setFooter({ text: `Library · Discord Music Bot`, iconURL: client.user?.displayAvatarURL({ extension: 'png', size: 128 }) });
 }
 
@@ -42,7 +42,7 @@ export function createQueueEmbed(snapshot: Pick<PlayerSnapshot, 'loop' | 'volume
             { name: '🎚️ Volume', value: `${snapshot.volume}%`, inline: true },
             { name: '🤖 Autoplay', value: snapshot.autoplay ? 'On' : 'Off', inline: true }
         )
-        .setThumbnail(snapshot.thumbnail || BANNER);
+        // .setThumbnail(snapshot.thumbnail || BANNER);
 }
 
 export async function queueEmbed(guildId: string, page = 1): Promise<EmbedBuilder> {

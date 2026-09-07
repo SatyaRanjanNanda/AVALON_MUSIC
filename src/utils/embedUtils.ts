@@ -46,12 +46,19 @@ export function createQueueEmbed(snapshot: Pick<PlayerSnapshot, 'loop' | 'volume
 }
 
 export function createQueueEndedEmbed(brief: string): EmbedBuilder {
+    if (brief.includes('Autoplay')) {
+        return new EmbedBuilder()
+            .setColor(embedColor)
+            .setAuthor({ name: '🎵 List Ended', iconURL: LOGO })
+            .setTitle('Queue / Playlist Finished')
+            .setDescription(`\`\`\`\n─────────────────●\n\`\`\`\n${brief}`)
+            .setFooter({ text: 'Library · Discord Music Bot', iconURL: client.user?.displayAvatarURL({ extension: 'png', size: 128 }) });
+    }
+
     return new EmbedBuilder()
         .setColor(embedColor)
         .setAuthor({ name: '🎵 List Ended', iconURL: LOGO })
-        .setTitle('Queue / Playlist Finished')
-        .setDescription(`\`\`\`\n─────────────────●\n\`\`\`\n${brief}\n\nAdd more songs with \`/play <name or URL>\`.`)
-        .setFooter({ text: 'Library · Discord Music Bot', iconURL: client.user?.displayAvatarURL({ extension: 'png', size: 128 }) });
+        .setDescription('All songs have been played! `/play` more songs to keep the party going!');
 }
 
 export async function queueEmbed(guildId: string, page = 1): Promise<EmbedBuilder> {

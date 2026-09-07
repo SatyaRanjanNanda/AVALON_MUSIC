@@ -1,8 +1,15 @@
 [
   {
-    "name": "Lava.link",
-    "host": "lava.link",
-    "port": 80,
+    "name": "Koda Node (US)",
+    "host": "lavalink.kodapanel.com",
+    "port": 2333,
+    "password": "youshallnotpass",
+    "secure": false
+  },
+  {
+    "name": "Lavasnek",
+    "host": "node.lavasnek.com",
+    "port": 2333,
     "password": "youshallnotpass",
     "secure": false
   }

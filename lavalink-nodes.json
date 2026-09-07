@@ -5,12 +5,5 @@
     "port": 2333,
     "password": "youshallnotpass",
     "secure": false
-  },
-  {
-    "name": "Trinium",
-    "host": "lavalink.triniumhost.com",
-    "port": 4333,
-    "password": "free",
-    "secure": false
   }
 ]

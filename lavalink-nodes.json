@@ -1,8 +1,8 @@
 [
   {
-    "name": "Clxud",
-    "host": "lavalink.clxud.dev",
-    "port": 2333,
+    "name": "Lava.link",
+    "host": "lava.link",
+    "port": 80,
     "password": "youshallnotpass",
     "secure": false
   }

@@ -12,7 +12,7 @@ export type PlayResult =
     | { type: 'track'; track: Track }
     | { type: 'error'; message: string };
 
-const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'dzsearch', 'amsearch', 'spsearch'];
+const FALLBACK_SEARCH_PLATFORMS = ['ytsearch'];
 const NODE_REQUEST_TIMEOUT_MS = 12000;
 const MAX_RECOVERY_ATTEMPTS = 3;
 const RECOVERY_RESET_MS = 60_000;

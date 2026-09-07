@@ -1,5 +1,12 @@
 [
   {
+    "name": "Clxud",
+    "host": "lavalink.clxud.dev",
+    "port": 2333,
+    "password": "youshallnotpass",
+    "secure": false
+  },
+  {
     "name": "HeavenCloud Free Node",
     "host": "free-lava.heavencloud.in",
     "port": 4000,

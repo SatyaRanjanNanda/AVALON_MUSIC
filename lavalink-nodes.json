@@ -12,5 +12,12 @@
     "port": 4000,
     "password": "heavencloud.in",
     "secure": false
+  },
+  {
+    "name": "Vexa Node",
+    "host": "nokia.vexanode.gg",
+    "port": 19133,
+    "password": "vexanode.cloud",
+    "secure": false
   }
 ]

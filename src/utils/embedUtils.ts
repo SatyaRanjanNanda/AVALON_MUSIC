@@ -45,6 +45,15 @@ export function createQueueEmbed(snapshot: Pick<PlayerSnapshot, 'loop' | 'volume
         .setThumbnail(snapshot.thumbnail || LOGO);
 }
 
+export function createQueueEndedEmbed(brief: string): EmbedBuilder {
+    return new EmbedBuilder()
+        .setColor(embedColor)
+        .setAuthor({ name: '🎵 List Ended', iconURL: LOGO })
+        .setTitle('Queue / Playlist Finished')
+        .setDescription(`\`\`\`\n─────────────────●\n\`\`\`\n${brief}\n\nAdd more songs with \`/play <name or URL>\`.`)
+        .setFooter({ text: 'Library · Discord Music Bot', iconURL: client.user?.displayAvatarURL({ extension: 'png', size: 128 }) });
+}
+
 export async function queueEmbed(guildId: string, page = 1): Promise<EmbedBuilder> {
     const player = riffy.players.get(guildId);
     const embed = new EmbedBuilder().setColor(embedColor).setAuthor({ name: '📜 Current Queue', iconURL: LOGO });

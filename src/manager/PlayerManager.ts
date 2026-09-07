@@ -4,7 +4,7 @@ import { client, riffy, status } from '../core';
 import type { LoopMode, PlayerAppState, PlayerSnapshot, ResolvedTracks } from '../types';
 import type { CentralEmbedHandler } from '../utils/centralEmbed';
 import type { SettingsStore } from '../utils/settings';
-import { buildNowPlayingPanel } from '../utils/panel';
+import { buildNowPlayingPanel, buildQueueEndedPanel } from '../utils/panel';
 import config from '../config';
 
 export type PlayResult =
@@ -258,7 +258,12 @@ export class PlayerManager {
             }
             return;
         }
-        console.warn(`⚠️ Recovery failed for ${player.guildId}, keeping bot in VC.`);
+        console.warn(`⚠️ Recovery failed for ${player.guildId}, advancing queue.`);
+        if (player && player.queue.length > 0) {
+            player.stop();
+        } else if (config.bot.showNowPlaying && player) {
+            await this.sendQueueEndedPanel(player.guildId, '⚠️ Could not play that track and the queue is empty.');
+        }
     }
 
     private pickBestTrack(tracks: Track[], query: string): Track | undefined {
@@ -286,6 +291,7 @@ export class PlayerManager {
 
         let best: Track | undefined = tracks[0];
         let bestScore = -Infinity;
+        let bestMatched = 0;
 
         for (let i = 0; i < Math.min(tracks.length, 15); i++) {
             const track = tracks[i];
@@ -320,10 +326,13 @@ export class PlayerManager {
             if (score > bestScore) {
                 bestScore = score;
                 best = track;
+                bestMatched = matched;
             }
         }
 
-        return best !== undefined && bestScore > -400 ? best : tracks[0];
+        const goodMatch = coreWords.length === 0 || bestMatched > 0;
+        const threshold = coreWords.length > 0 ? 100 : -400;
+        return best !== undefined && bestScore > threshold && goodMatch ? best : undefined;
     }
 
     private async resolveWithFallback(query: string, requester: unknown): Promise<FallbackResolveResult> {
@@ -356,7 +365,26 @@ export class PlayerManager {
                         NODE_REQUEST_TIMEOUT_MS
                     );
                     const { loadType, tracks } = result;
-                    if (loadType === 'playlist' || ((loadType === 'track' || loadType === 'search') && tracks.length > 0)) {
+                    if (loadType === 'playlist') {
+                        return result;
+                    }
+                    if ((loadType === 'track' || loadType === 'search') && tracks.length > 0) {
+                        if (loadType === 'track') return result;
+                        const best = this.pickBestTrack(tracks, searchTerm);
+                        if (!best) {
+                            attempts.push(`${platform}(${node.name}: no good match)`);
+                            if (specifiedPlatform) {
+                                return {
+                                    loadType: 'empty',
+                                    tracks: [],
+                                    playlistInfo: { name: '' },
+                                    exception: {
+                                        message: `No original match on requested platform "${specifiedPlatform}" (only covers/instrumentals/unrelated results found).`
+                                    }
+                                };
+                            }
+                            continue;
+                        }
                         return result;
                     }
                     attempts.push(`${platform}(${node.name}: ${loadType || 'empty'})`);
@@ -452,6 +480,34 @@ export class PlayerManager {
         if (!channel || !('send' in channel)) return;
 
         const panel = buildNowPlayingPanel(snapshot);
+
+        if (state.nowPlayingMessageId) {
+            const cached = await channel.messages.fetch(state.nowPlayingMessageId).catch(() => null);
+            if (cached) {
+                await cached.edit(panel).catch(() => undefined);
+                return;
+            }
+        }
+
+        try {
+            const message = await channel.send(panel);
+            state.nowPlayingMessageId = message.id;
+        } catch {
+            /* noop */
+        }
+    }
+
+    async sendQueueEndedPanel(guildId: string, brief = 'The playback has finished.'): Promise<void> {
+        const state = this.states.get(guildId);
+        if (!state) return;
+
+        const serverSettings = await this.settingsStore.get(guildId).catch(() => null);
+        if (serverSettings?.centralEnabled && serverSettings.centralChannelId === state.textChannelId) return;
+
+        const channel = this.client.channels.cache.get(state.textChannelId);
+        if (!channel || !('send' in channel)) return;
+
+        const panel = buildQueueEndedPanel(brief);
 
         if (state.nowPlayingMessageId) {
             const cached = await channel.messages.fetch(state.nowPlayingMessageId).catch(() => null);
@@ -661,6 +717,13 @@ export class PlayerManager {
 
             if (serverSettings.autoplay) {
                 player.isAutoplay = true;
+            }
+
+            if (config.bot.showNowPlaying) {
+                await this.sendQueueEndedPanel(
+                    player.guildId,
+                    serverSettings.autoplay ? 'Switching to Autoplay…' : 'Queue and playlist finished.'
+                );
             }
 
             if (player.isAutoplay && player.connected) {

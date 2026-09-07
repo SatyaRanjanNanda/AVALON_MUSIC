@@ -6,7 +6,7 @@ import {
     type MessageActionRowComponentBuilder
 } from 'discord.js';
 import type { PlayerSnapshot } from '../types';
-import { createNowPlayingEmbed } from './embedUtils';
+import { createNowPlayingEmbed, createQueueEndedEmbed } from './embedUtils';
 import config from '../config';
 import { EMOJIS } from './emojis';
 
@@ -74,6 +74,13 @@ export function buildNowPlayingPanel(snapshot: PlayerSnapshot): { embeds: import
     return {
         embeds: [embed],
         components: buildControlRows(snapshot)
+    };
+}
+
+export function buildQueueEndedPanel(brief: string): { embeds: import('discord.js').EmbedBuilder[]; components: ActionRowBuilder<MessageActionRowComponentBuilder>[] } {
+    return {
+        embeds: [createQueueEndedEmbed(brief)],
+        components: []
     };
 }
 

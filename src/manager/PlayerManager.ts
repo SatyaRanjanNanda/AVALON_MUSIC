@@ -12,8 +12,8 @@ export type PlayResult =
     | { type: 'track'; track: Track }
     | { type: 'error'; message: string };
 
-const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'spsearch', 'amsearch'];
-const NODE_REQUEST_TIMEOUT_MS = 15000;
+const FALLBACK_SEARCH_PLATFORMS = ['ytsearch', 'scsearch', 'dzsearch', 'amsearch', 'spsearch'];
+const NODE_REQUEST_TIMEOUT_MS = 12000;
 const MAX_RECOVERY_ATTEMPTS = 3;
 const RECOVERY_RESET_MS = 60_000;
 
@@ -348,8 +348,8 @@ export class PlayerManager {
         const attempts: string[] = [];
         const nodes = this.connectedNodes();
 
-        for (const node of nodes) {
-            for (const platform of platforms) {
+        for (const platform of platforms) {
+            for (const node of nodes) {
                 try {
                     const result = await withTimeout(
                         riffy.resolve({ query: searchTerm, source: platform, requester, node }),

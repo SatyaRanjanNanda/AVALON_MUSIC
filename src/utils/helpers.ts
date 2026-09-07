@@ -30,11 +30,11 @@ export function getTrackThumbnail(track: Track): string | null {
     return null;
 }
 
-export function getProgressBar(position: number, duration: number, length = 16): string {
-    if (!duration) return '▱'.repeat(length);
+export function getProgressBar(position: number, duration: number, length = 18): string {
+    if (!duration) return '─'.repeat(Math.floor(length / 2)) + '●' + '─'.repeat(Math.ceil(length / 2));
     const progress = Math.max(0, Math.min(1, position / duration));
-    const filled = Math.round(progress * length);
-    return '▰'.repeat(filled) + '▱'.repeat(length - filled);
+    const knob = Math.round(progress * length);
+    return '─'.repeat(knob) + '●' + '─'.repeat(length - knob);
 }
 
 export function isUrl(query: string): boolean {

@@ -10,21 +10,20 @@ const LOGO = 'https://cdn.dribbble.com/userupload/21568836/file/original-45df2d9
 // const BANNER = 'https://cdn.discordapp.com/attachments/1126319852531294250/1313984446153818159/bg.png';
 
 export function createNowPlayingEmbed(snapshot: PlayerSnapshot): EmbedBuilder {
-    const time = `\`${formatDuration(snapshot.position)} / ${formatDuration(snapshot.duration)}\``;
-    const progressLine = getProgressBar(snapshot.position, snapshot.duration);
+    const positionText = formatDuration(snapshot.position);
+    const durationText = formatDuration(snapshot.duration);
+    // Use a length of 16 for the bar so it fits nicely between the timestamps
+    const progressLine = getProgressBar(snapshot.position, snapshot.duration, 16);
     const requester = mentionRequester(snapshot.requester);
 
     return new EmbedBuilder()
         .setColor(embedColor)
         .setAuthor({ name: '🎶 Now Playing', iconURL: LOGO })
         .setTitle(snapshot.title)
-        .setDescription(`\`\`\`\n${progressLine}\n\`\`\`\n${time}`)
+        .setDescription(`\`\`\`\n${positionText} ${progressLine} ${durationText}\n\`\`\``)
         .addFields(
             { name: '👤 Artist', value: snapshot.author, inline: true },
-            { name: '⏱️ Duration', value: formatDuration(snapshot.duration), inline: true },
             { name: '🎚️ Volume', value: `${snapshot.volume}%`, inline: true },
-            { name: '🔁 Loop', value: snapshot.loop === 'track' ? '🔂 Track' : snapshot.loop === 'queue' ? '🔁 Queue' : '❌ Off', inline: true },
-            { name: '🤖 Autoplay', value: snapshot.autoplay ? '✅ On' : '❌ Off', inline: true },
             { name: '🎧 Requested by', value: requester, inline: true }
         )
         .setThumbnail(snapshot.thumbnail || LOGO)

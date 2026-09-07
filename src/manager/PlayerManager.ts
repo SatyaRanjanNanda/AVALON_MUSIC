@@ -370,12 +370,21 @@ export class PlayerManager {
     private async resolveWithFallback(query: string, requester: unknown): Promise<FallbackResolveResult> {
         const trimmed = query.trim();
         if (/^https?:\/\//i.test(trimmed)) {
-            try {
-                return await withTimeout(riffy.resolve({ query: trimmed, requester }), NODE_REQUEST_TIMEOUT_MS);
-            } catch (error) {
-                console.error('Direct URL resolve error:', (error as Error)?.message || error);
-                return { loadType: 'empty', tracks: [], playlistInfo: { name: '' } };
+            const nodes = this.connectedNodes();
+            for (const node of nodes) {
+                try {
+                    const result = await withTimeout(
+                        riffy.resolve({ query: trimmed, requester, node }),
+                        NODE_REQUEST_TIMEOUT_MS
+                    );
+                    if (result.loadType !== 'empty' && result.loadType !== 'error') {
+                        return result;
+                    }
+                } catch (error) {
+                    console.error('Direct URL resolve error on node:', node.name, (error as Error)?.message || error);
+                }
             }
+            return { loadType: 'empty', tracks: [], playlistInfo: { name: '' } };
         }
 
         const prefixMatch = trimmed.match(/^(ytsearch|ytmsearch|scsearch|spsearch|amsearch|dzsearch|ymsearch):/i);
@@ -417,6 +426,9 @@ export class PlayerManager {
                             }
                             continue;
                         }
+                        
+                        // Ensure the best track is the first element in the array so the bot plays it
+                        result.tracks = [best, ...result.tracks.filter(t => t !== best)];
                         return result;
                     }
                     attempts.push(`${platform}(${node.name}: ${loadType || 'empty'})`);

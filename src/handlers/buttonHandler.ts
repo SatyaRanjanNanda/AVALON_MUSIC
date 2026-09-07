@@ -85,7 +85,7 @@ export async function handleMusicButton(interaction: ButtonInteraction): Promise
         }
         case 'music_skip':
         case 'p:skip': {
-            if (!player || !conditions.isPlaying) return replyOn(interaction, '❌ Nothing to skip!', true);
+            if (!player) return replyOn(interaction, '❌ Nothing to skip!', true);
             await music.skip(guildId);
             await replyOn(interaction, '⏭️ Skipped!');
             break;
